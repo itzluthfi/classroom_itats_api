@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
 //tes
 type databaseConnection struct {
 }
@@ -21,7 +22,9 @@ func NewDatabaseConnection() *databaseConnection {
 }
 
 func (c *databaseConnection) Connect() (*gorm.DB, error) {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta", viper.GetString("DB_HOST"), viper.GetString("DB_USERNAME"), viper.GetString("DB_PASSWORD"), viper.GetString("DB_NAME"), viper.GetString("DB_PORT"))
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta", viper.GetString("DB_HOST"), viper.GetString("DB_USERNAME"), viper.GetString("DB_PASSWORD"), viper.GetString("DB_DATABASE"), viper.GetString("DB_PORT"))
+	fmt.Println("DEBUG CONNECTION STRING:", dsn)
+	fmt.Printf("DEBUG CONFIG: Host=%s Port=%s DB=%s User=%s\n", viper.GetString("DB_HOST"), viper.GetString("DB_PORT"), viper.GetString("DB_DATABASE"), viper.GetString("DB_USERNAME"))
 
 	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:      logger.Default.LogMode(logger.Info),

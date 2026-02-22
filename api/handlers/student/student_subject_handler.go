@@ -45,7 +45,9 @@ func (s *studentSubjectHandler) GetActiveSubjectByStudentWithID(c *gin.Context) 
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 
-	studentActiveSubjects, err = s.studentSubjectService.GetActiveStudentSubject(c.Request.Context(), claims["name"].(string))
+	period := c.DefaultQuery("period", "")
+
+	studentActiveSubjects, err = s.studentSubjectService.GetActiveStudentSubject(c.Request.Context(), claims["name"].(string), period)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err})
