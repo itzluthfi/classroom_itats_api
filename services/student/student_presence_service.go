@@ -17,6 +17,8 @@ type StudentPresenceService interface {
 	GetStudentPresencesSeparated(ctx context.Context, pakID string, mkID string, class string, mhsID string) (entities.StudentPresenceJSON, error)
 	SetStudentPresenceAnswers(ctx context.Context, PresenceAnswers []entities.PresenceAnswer) error
 	SetStudentPresence(ctx context.Context, StudentPresence entities.Presence) error
+	GetActivePresence(ctx context.Context, mkID string, pakID string, class string, mhsID string, dosID string) ([]map[string]interface{}, error)
+	GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error)
 }
 
 func NewStudentPresenceService(studentPresenceRepository student_repositories.StudentPresenceRepository) *studentPresenceService {
@@ -88,4 +90,12 @@ func (s *studentPresenceService) SetStudentPresenceAnswers(ctx context.Context, 
 
 func (s *studentPresenceService) SetStudentPresence(ctx context.Context, StudentPresence entities.Presence) error {
 	return s.studentPresenceRepository.SetStudentPresence(ctx, StudentPresence)
+}
+
+func (s *studentPresenceService) GetActivePresence(ctx context.Context, mkID string, pakID string, class string, mhsID string, dosID string) ([]map[string]interface{}, error) {
+	return s.studentPresenceRepository.GetActivePresence(ctx, mkID, pakID, class, mhsID, dosID)
+}
+
+func (s *studentPresenceService) GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error) {
+	return s.studentPresenceRepository.GetHomeActivePresence(ctx, mhsID)
 }

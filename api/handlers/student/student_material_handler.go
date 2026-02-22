@@ -23,6 +23,8 @@ type StudentMaterialHandler interface {
 	GetStudentAssignmentGroup(c *gin.Context)
 	GetStudentAssignmentScores(c *gin.Context)
 	GetStudentAssignmentSubmission(c *gin.Context)
+	GetActiveAssignment(c *gin.Context)
+	GetHomeActiveAssignment(c *gin.Context)
 }
 
 func NewStudentMaterialHandler(studentMaterialService student_services.StudentMaterialService) *studentMaterialHandler {
@@ -244,4 +246,65 @@ func (s *studentMaterialHandler) GetStudentAssignmentSubmission(c *gin.Context) 
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get data student assignments", "data": studentAssignments})
+}
+
+func (s *studentMaterialHandler) GetActiveAssignment(c *gin.Context) {
+	filter := map[string]interface{}{}
+
+	err := c.ShouldBindJSON(&filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
+	masterActivityID := filter["master_activity_id"].(string)
+
+	activeAssignments, err := s.studentMaterialService.GetActiveAssignment(c.Request.Context(), masterActivityID, mhsID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get active assignments", "data": activeAssignments})
+}
+
+func (s *studentMaterialHandler) GetHomeActiveAssignment(c *gin.Context) {
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
+
+	activeAssignments, err := s.studentMaterialService.GetHomeActiveAssignment(c.Request.Context(), mhsID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get home active assignments", "data": activeAssignments})
 }
