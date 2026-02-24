@@ -18,7 +18,7 @@ type StudentPresenceService interface {
 	SetStudentPresenceAnswers(ctx context.Context, PresenceAnswers []entities.PresenceAnswer) error
 	SetStudentPresence(ctx context.Context, StudentPresence entities.Presence) error
 	GetActivePresence(ctx context.Context, mkID string, pakID string, class string, mhsID string, dosID string) ([]map[string]interface{}, error)
-	GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error)
+	GetHomeActivePresence(ctx context.Context, mhsID string, pakID string) ([]map[string]interface{}, error)
 }
 
 func NewStudentPresenceService(studentPresenceRepository student_repositories.StudentPresenceRepository) *studentPresenceService {
@@ -96,6 +96,6 @@ func (s *studentPresenceService) GetActivePresence(ctx context.Context, mkID str
 	return s.studentPresenceRepository.GetActivePresence(ctx, mkID, pakID, class, mhsID, dosID)
 }
 
-func (s *studentPresenceService) GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error) {
-	return s.studentPresenceRepository.GetHomeActivePresence(ctx, mhsID)
+func (s *studentPresenceService) GetHomeActivePresence(ctx context.Context, mhsID string, pakID string) ([]map[string]interface{}, error) {
+	return s.studentPresenceRepository.GetHomeActivePresence(ctx, mhsID, pakID)
 }

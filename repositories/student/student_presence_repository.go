@@ -21,7 +21,7 @@ type StudentPresenceRepository interface {
 	PresenceCreated(ctx context.Context) ([]map[string]interface{}, error)
 	PresenceReminder(ctx context.Context) ([]map[string]interface{}, error)
 	GetActivePresence(ctx context.Context, mkID string, pakID string, class string, mhsID string, dosID string) ([]map[string]interface{}, error)
-	GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error)
+	GetHomeActivePresence(ctx context.Context, mhsID string, pakID string) ([]map[string]interface{}, error)
 }
 
 func NewStudentPresenceRepository(db *gorm.DB) *studentPresenceRepository {
@@ -240,22 +240,23 @@ func (s *studentPresenceRepository) GetActivePresence(ctx context.Context, mkID 
 	return result, nil
 }
 
-func (s *studentPresenceRepository) GetHomeActivePresence(ctx context.Context, mhsID string) ([]map[string]interface{}, error) {
+func (s *studentPresenceRepository) GetHomeActivePresence(ctx context.Context, mhsID string, pakID string) ([]map[string]interface{}, error) {
 	presences := []entities.Lecture{}
 	result := []map[string]interface{}{}
 
-	todayDate := time.Now().Format("2006-01-02")
 	now := time.Now()
 
-	// Get active pakid first
-	var pakID string
-	err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).
-		Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
-	if err != nil {
-		return nil, err
+	// Get active pakid first if not provided
+	if pakID == "" {
+		err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).
+			Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Get all active presences today across all subjects the student is enrolled in
+	var err error
 	err = s.db.WithContext(ctx).Table("kul").
 		Select("kul.*, jam.jammulai, jam.jamhingga, kultipe.kultipenama, mk.mknama").
 		Joins("left join jam on kul.jamid = jam.jamid").
@@ -264,7 +265,6 @@ func (s *studentPresenceRepository) GetHomeActivePresence(ctx context.Context, m
 		Joins("join krs on krs.mkid = kul.mkid and krs.kelaskrs = kul.kelas and krs.pakid = kul.pakid").
 		Where("krs.mhsid = ?", mhsID).
 		Where("kul.pakid = ?", pakID).
-		Where("kul.kultgl = ?", todayDate).
 		Where("kul.is_kelas_hadir = ?", true).
 		Where("kul.batas_presensi IS NOT NULL").
 		Where("kul.batas_presensi >= ?", now).

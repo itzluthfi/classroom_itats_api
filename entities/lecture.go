@@ -28,6 +28,10 @@ type Lecture struct {
 	LinkRecord          string    `gorm:"column:link_record" json:"link_record"`
 	CollegeType         int       `gorm:"column:jenis_kuliah" json:"college_type"`
 	CollegeTypeName     string    `gorm:"column:nama_jenis_perkuliahan" json:"college_type_name"`
+	TimeStart           string    `gorm:"column:jammulai" json:"time_start"`
+	TimeEnd             string    `gorm:"column:jamhingga" json:"time_end"`
+	LectureTypeName     string    `gorm:"column:kultipenama" json:"lecture_type_name"`
+	SubjectName         string    `gorm:"column:mknama" json:"subject_name"`
 }
 
 type LectureWeek struct {

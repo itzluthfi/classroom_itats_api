@@ -200,8 +200,9 @@ func (s *studentPresenceHandler) GetHomeActivePresence(c *gin.Context) {
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 	mhsID := claims["name"].(string)
+	period := c.DefaultQuery("period", "")
 
-	activePresences, err := s.studentPresenceService.GetHomeActivePresence(c.Request.Context(), mhsID)
+	activePresences, err := s.studentPresenceService.GetHomeActivePresence(c.Request.Context(), mhsID, period)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
