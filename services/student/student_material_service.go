@@ -19,7 +19,7 @@ type StudentMaterialService interface {
 	GetStudentScore(ctx context.Context, mhsID string, masterActivityID string) ([]entities.StudentAssignmentScore, error)
 	GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error)
 	GetActiveAssignment(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
-	GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error)
+	GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error)
 }
 
 func NewStudentMaterialService(studentMaterialRepository student_repositories.StudentMaterialRepository) *studentMaterialService {
@@ -58,6 +58,6 @@ func (s *studentMaterialService) GetActiveAssignment(ctx context.Context, master
 	return s.studentMaterialRepository.GetActiveAssignment(ctx, masterActivityID, mhsID)
 }
 
-func (s *studentMaterialService) GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error) {
-	return s.studentMaterialRepository.GetHomeActiveAssignment(ctx, mhsID)
+func (s *studentMaterialService) GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error) {
+	return s.studentMaterialRepository.GetHomeActiveAssignment(ctx, mhsID, pakID)
 }
