@@ -123,6 +123,8 @@ func main() {
 
 	firebaseHelper := helper.NewSendFirebaseMessage(firebaseApp, presenceCronService, taskCronService)
 
+	webhookHandler := handlers.NewWebhookHandler(firebaseHelper)
+
 	route := routes.NewRoute(run,
 		userHandler,
 		studentSubjectHandler,
@@ -136,6 +138,7 @@ func main() {
 		lecturerAssignmenthandler,
 		lecturerCollegeReporthandler,
 		lecturerMaterialhandler,
+		webhookHandler,
 	)
 
 	route.Routes()

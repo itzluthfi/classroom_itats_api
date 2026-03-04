@@ -20,6 +20,8 @@ type StudentPresenceHandler interface {
 	GetPresenceQuestion(c *gin.Context)
 	GetSubjectResponsi(c *gin.Context)
 	SetPresenceStudent(c *gin.Context)
+	GetActivePresence(c *gin.Context)
+	GetHomeActivePresence(c *gin.Context)
 }
 
 func NewStudentPresenceHandler(studentPresenceService student_services.StudentPresenceService) *studentPresenceHandler {
@@ -147,4 +149,65 @@ func (s *studentPresenceHandler) SetPresenceStudent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"status": "success", "message": "success store student presence"})
+}
+
+func (s *studentPresenceHandler) GetActivePresence(c *gin.Context) {
+	filter := map[string]interface{}{}
+
+	err := c.ShouldBindJSON(&filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
+
+	activePresences, err := s.studentPresenceService.GetActivePresence(c.Request.Context(), filter["subject_id"].(string), filter["academic_period"].(string), filter["class"].(string), mhsID, filter["lecturer_id"].(string))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get active presences", "data": activePresences})
+}
+
+func (s *studentPresenceHandler) GetHomeActivePresence(c *gin.Context) {
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
+	period := c.DefaultQuery("period", "")
+
+	activePresences, err := s.studentPresenceService.GetHomeActivePresence(c.Request.Context(), mhsID, period)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get home active presences", "data": activePresences})
 }

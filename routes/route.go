@@ -23,6 +23,7 @@ type route struct {
 	lecturerAssignmentHandler    lecturer_handlers.LecturerAssignmentHandler
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler
 	lecturerMaterialHandler      lecturer_handlers.LecturerMaterialHandler
+	webhookHandler               handlers.WebhookHandler
 }
 
 type Route interface {
@@ -41,6 +42,7 @@ func NewRoute(run *gin.Engine,
 	lecturerAssignmentHandler lecturer_handlers.LecturerAssignmentHandler,
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler,
 	lecturerMaterialHandler lecturer_handlers.LecturerMaterialHandler,
+	webhookHandler handlers.WebhookHandler,
 ) *route {
 	return &route{
 		route:                        run,
@@ -56,6 +58,7 @@ func NewRoute(run *gin.Engine,
 		lecturerAssignmentHandler:    lecturerAssignmentHandler,
 		lecturerCollegeReportHandler: lecturerCollegeReportHandler,
 		lecturerMaterialHandler:      lecturerMaterialHandler,
+		webhookHandler:               webhookHandler,
 	}
 }
 
@@ -90,11 +93,14 @@ func (r *route) Routes() {
 	student.POST("/subjects", r.studentSubjectHandler.GetSubjectByStudentIdWithPeriod)
 	student.GET("/periodes", r.studentSubjectHandler.StudyPeriodes)
 	student.POST("/profile", r.studentProfileHandler.GetStudentProfile)
+	student.GET("/home/presences/active", r.studentPresenceHandler.GetHomeActivePresence)
+	student.GET("/home/assignments/active", r.studentMaterialHandler.GetHomeActiveAssignment)
 	subjects := student.Group("/subjects")
 	subjects.POST("/lectures", r.lectureHandler.GetStudentLecture)
 	subjects.POST("/responsi", r.studentPresenceHandler.GetSubjectResponsi)
 	subjects.POST("/presences", r.studentPresenceHandler.GetStudentPresences)
 	subjects.POST("/presences/present", r.studentPresenceHandler.SetPresenceStudent)
+	subjects.POST("/presences/active", r.studentPresenceHandler.GetActivePresence)
 	subjects.POST("/presences/questions", r.studentPresenceHandler.GetPresenceQuestion)
 	subjects.POST("/materials", r.studentMaterialHandler.GetStudentMaterial)
 	subjects.POST("/materials/weeks", r.studentMaterialHandler.GetWeekMaterial)
@@ -102,6 +108,7 @@ func (r *route) Routes() {
 	subjects.POST("/materials/assignments", r.studentMaterialHandler.GetStudentAssignmentGroup)
 	subjects.POST("/materials/assignments/detail", r.studentMaterialHandler.GetStudentAssignment)
 	subjects.POST("/materials/assignments/submited", r.studentMaterialHandler.GetStudentAssignmentSubmission)
+	subjects.POST("/materials/assignments/active", r.studentMaterialHandler.GetActiveAssignment)
 	subjects.POST("/scores", r.studentMaterialHandler.GetStudentAssignmentScores)
 
 	lecturer := private.Group("/lecturers")
@@ -123,4 +130,10 @@ func (r *route) Routes() {
 	lecturer.POST("/colleges/reports/detail", r.lecturerCollegeReportHandler.GetSubjectCollegeReportByKulID)
 	lecturer.POST("/colleges/materials", r.lecturerMaterialHandler.GetMaterialSelected)
 	lecturer.GET("/materials", r.lecturerMaterialHandler.GetMaterials)
+
+	// Webhook endpoints — diamankan dengan x_api_key
+	webhook := r.route.Group("/api/v1/internal")
+	webhook.Use(middlewares.ApiKey())
+	webhook.POST("/notify/presence", r.webhookHandler.TriggerPresenceNotification)
+	webhook.POST("/notify/assignment", r.webhookHandler.TriggerAssignmentNotification)
 }

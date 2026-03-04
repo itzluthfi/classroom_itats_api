@@ -22,6 +22,8 @@ type StudentMaterialRepository interface {
 	GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error)
 	AssignmentCreated(ctx context.Context) ([]map[string]interface{}, error)
 	AssignmentReminder(ctx context.Context) ([]map[string]interface{}, error)
+	GetActiveAssignment(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
+	GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error)
 }
 
 func NewStudentMaterialRepository(db *gorm.DB) *studentMaterialRepository {
@@ -261,4 +263,49 @@ func (s *studentMaterialRepository) AssignmentReminder(ctx context.Context) ([]m
 	}
 
 	return users, nil
+}
+
+func (s *studentMaterialRepository) GetActiveAssignment(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error) {
+	activeAssignments := []entities.Assignment{}
+	today := time.Now()
+
+	err := s.db.WithContext(ctx).Table("tugas_kul").
+		Select("tugas_kul.*").
+		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
+		Where("tugas_kul.master_kegiatan_id = ?", masterActivityID).
+		Where("tugas_kul.waktu_mulai_tugas <= ?", today).
+		Where("tugas_kul.waktu_akhir_tugas >= ?", today).
+		Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
+		Find(&activeAssignments).Error
+
+	return activeAssignments, err
+}
+
+func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error) {
+	activeAssignments := []entities.Assignment{}
+	today := time.Now()
+
+	// Get active pakid first
+	var pakID string
+	err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).
+		Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Query active unsubmitted assignments across all student's subjects
+	err = s.db.WithContext(ctx).Table("tugas_kul").
+		Select("tugas_kul.*, mk.mknama, vw_kelas_tawar.kelas").
+		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
+		Joins("join vw_kelas_tawar on vw_kelas_tawar.id_master_kegiatan = tugas_kul.master_kegiatan_id").
+		Joins("join krs on krs.mkid = vw_kelas_tawar.mkid and krs.kelaskrs = vw_kelas_tawar.kelas and krs.pakid = vw_kelas_tawar.pakid").
+		Joins("left join mk on mk.mkid = vw_kelas_tawar.mkid").
+		Where("krs.mhsid = ?", mhsID).
+		Where("krs.pakid = ?", pakID).
+		Where("tugas_kul.waktu_mulai_tugas <= ?", today).
+		Where("tugas_kul.waktu_akhir_tugas >= ?", today).
+		Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
+		Find(&activeAssignments).Error
+
+	return activeAssignments, err
 }

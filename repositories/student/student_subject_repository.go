@@ -12,7 +12,7 @@ type studentSubjectRepository struct {
 }
 
 type StudentSubjectRepository interface {
-	GetActiveSubjectByStudentID(ctx context.Context, mhsID string) ([]entities.StudentSubject, error)
+	GetActiveSubjectByStudentID(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error)
 	GetSubjectClassStudent(ctx context.Context, mhsID string) ([]entities.SubjectSchedule, error)
 	GetSubjectByStudentIDWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error)
 	GetSubjectClassStudentWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectSchedule, error)
@@ -25,22 +25,23 @@ func NewStudentSubjectRepository(db *gorm.DB) *studentSubjectRepository {
 	}
 }
 
-func (s *studentSubjectRepository) GetActiveSubjectByStudentID(ctx context.Context, mhsID string) ([]entities.StudentSubject, error) {
+func (s *studentSubjectRepository) GetActiveSubjectByStudentID(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error) {
 	studentSubjects := []entities.StudentSubject{}
-	var pakID string
 
-	err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
+	if pakID == "" {
+		err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
 
-	if err != nil {
-		return studentSubjects, err
+		if err != nil {
+			return studentSubjects, err
+		}
 	}
 
-	err = s.db.WithContext(ctx).Table("krs").
+	err := s.db.WithContext(ctx).Table("krs").
 		Distinct("krs.mkid", "mk.mknama", "krs.kelaskrs", "krs.sks", "krs.mkid", "krs.jurid", "krs.pakid", "vw_kelas_tawar.dosid", "vw_kelas_tawar.dosnama", "vw_kelas_tawar.id_master_kegiatan").
 		// Select("mk.mknama", "krs.kelaskrs", "krs.sks", "krs.mkid", "krs.jurid", "krs.pakid", "vw_kelas_tawar.dosid", "vw_kelas_tawar.dosnama", "vw_kelas_tawar.id_master_kegiatan").
-		Joins("join vw_kelas_tawar on vw_kelas_tawar.mkid = krs.mkid and vw_kelas_tawar.kelas = krs.kelaskrs and vw_kelas_tawar.pakid = krs.pakid").
+		Joins("left join vw_kelas_tawar on vw_kelas_tawar.mkid = krs.mkid and vw_kelas_tawar.kelas = krs.kelaskrs and vw_kelas_tawar.pakid = krs.pakid").
 		Joins("join mk on mk.mkid = krs.mkid").
-		Joins("join jad on jad.id_master_kegiatan = vw_kelas_tawar.id_master_kegiatan and mk.jurid = jad.jurid").
+		Joins("left join jad on jad.id_master_kegiatan = vw_kelas_tawar.id_master_kegiatan and mk.jurid = jad.jurid").
 		// Joins("join pak on pak.pakid = krs.pakid").
 		// Joins("join pakkul on pak.pakid = pakkul.pakid").
 		// Joins("join jad on mk.mkid = jad.mkid and pak.pakid = jad.pakid and krs.kelaskrs = jad.kelas").

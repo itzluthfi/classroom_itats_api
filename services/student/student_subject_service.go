@@ -11,9 +11,9 @@ type studentSubjectService struct {
 }
 
 type StudentSubjectService interface {
-	GetActiveSubjectByStudentID(ctx context.Context, mhsID string) ([]entities.StudentSubject, error)
+	GetActiveSubjectByStudentID(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error)
 	GetSubjectClassStudent(ctx context.Context, mhsID string) ([]entities.SubjectSchedule, error)
-	GetActiveStudentSubject(ctx context.Context, mhsID string) ([]entities.SubjectJSON, error)
+	GetActiveStudentSubject(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectJSON, error)
 	GetSubjectByStudentIDWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error)
 	GetSubjectClassStudentWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectSchedule, error)
 	GetStudentSubjectByPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectJSON, error)
@@ -26,23 +26,29 @@ func NewStudentSubjectService(studentSubjectRepository student_repositories.Stud
 	}
 }
 
-func (s *studentSubjectService) GetActiveSubjectByStudentID(ctx context.Context, mhsID string) ([]entities.StudentSubject, error) {
-	return s.studentSubjectRepository.GetActiveSubjectByStudentID(ctx, mhsID)
+func (s *studentSubjectService) GetActiveSubjectByStudentID(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error) {
+	return s.studentSubjectRepository.GetActiveSubjectByStudentID(ctx, mhsID, pakID)
 }
 
 func (s *studentSubjectService) GetSubjectClassStudent(ctx context.Context, mhsID string) ([]entities.SubjectSchedule, error) {
 	return s.studentSubjectRepository.GetSubjectClassStudent(ctx, mhsID)
 }
 
-func (s *studentSubjectService) GetActiveStudentSubject(ctx context.Context, mhsID string) ([]entities.SubjectJSON, error) {
+func (s *studentSubjectService) GetActiveStudentSubject(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectJSON, error) {
 	activeStudentSubject := []entities.SubjectJSON{}
 
-	studentSubjects, err := s.GetActiveSubjectByStudentID(ctx, mhsID)
+	studentSubjects, err := s.GetActiveSubjectByStudentID(ctx, mhsID, pakID)
 	if err != nil {
 		return nil, err
 	}
 
-	subjectSchedules, err := s.GetSubjectClassStudent(ctx, mhsID)
+	var subjectSchedules []entities.SubjectSchedule
+	if pakID != "" {
+		subjectSchedules, err = s.GetSubjectClassStudentWithPeriod(ctx, mhsID, pakID)
+	} else {
+		subjectSchedules, err = s.GetSubjectClassStudent(ctx, mhsID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
