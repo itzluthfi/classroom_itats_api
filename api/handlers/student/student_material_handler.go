@@ -298,8 +298,9 @@ func (s *studentMaterialHandler) GetHomeActiveAssignment(c *gin.Context) {
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 	mhsID := claims["name"].(string)
+	period := c.DefaultQuery("period", "")
 
-	activeAssignments, err := s.studentMaterialService.GetHomeActiveAssignment(c.Request.Context(), mhsID)
+	activeAssignments, err := s.studentMaterialService.GetHomeActiveAssignment(c.Request.Context(), mhsID, period)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})

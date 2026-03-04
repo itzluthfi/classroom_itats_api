@@ -23,7 +23,7 @@ type StudentMaterialRepository interface {
 	AssignmentCreated(ctx context.Context) ([]map[string]interface{}, error)
 	AssignmentReminder(ctx context.Context) ([]map[string]interface{}, error)
 	GetActiveAssignment(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
-	GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error)
+	GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error)
 }
 
 func NewStudentMaterialRepository(db *gorm.DB) *studentMaterialRepository {
@@ -281,19 +281,21 @@ func (s *studentMaterialRepository) GetActiveAssignment(ctx context.Context, mas
 	return activeAssignments, err
 }
 
-func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context, mhsID string) ([]entities.Assignment, error) {
+func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error) {
 	activeAssignments := []entities.Assignment{}
 	today := time.Now()
 
-	// Get active pakid first
-	var pakID string
-	err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).
-		Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
-	if err != nil {
-		return nil, err
+	// Get active pakid first if not provided
+	if pakID == "" {
+		err := s.db.WithContext(ctx).Table("(?) as pak", s.db.Table("pak").Order("pakid DESC").Limit(5)).
+			Select("pakid").Where("isactive = ?", true).Find(&pakID).Error
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Query active unsubmitted assignments across all student's subjects
+	var err error
 	err = s.db.WithContext(ctx).Table("tugas_kul").
 		Select("tugas_kul.*, mk.mknama, vw_kelas_tawar.kelas").
 		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
