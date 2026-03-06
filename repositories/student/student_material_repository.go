@@ -297,16 +297,16 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 	// Query active unsubmitted assignments across all student's subjects
 	var err error
 	err = s.db.WithContext(ctx).Table("tugas_kul").
-		Select("tugas_kul.*, mk.mknama, vw_kelas_tawar.kelas").
-		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
-		Joins("join vw_kelas_tawar on vw_kelas_tawar.id_master_kegiatan = tugas_kul.master_kegiatan_id").
-		Joins("join krs on krs.mkid = vw_kelas_tawar.mkid and krs.kelaskrs = vw_kelas_tawar.kelas and krs.pakid = vw_kelas_tawar.pakid").
-		Joins("left join mk on mk.mkid = vw_kelas_tawar.mkid").
-		Where("krs.mhsid = ?", mhsID).
-		Where("krs.pakid = ?", pakID).
-		// Where("tugas_kul.waktu_mulai_tugas <= ?", today).
-		Where("tugas_kul.waktu_akhir_tugas >= ?", today).
-		Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
+    	Select("tugas_kul.*, mk.mknama, vw_jadwal.kelas").
+    	Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
+    	Joins("join vw_jadwal on vw_jadwal.id_master_kegiatan = tugas_kul.master_kegiatan_id").
+    	Joins("join krs on krs.mkid = vw_jadwal.mkid and krs.kelaskrs = vw_jadwal.kelas and krs.pakid = vw_jadwal.pakid").
+    	Joins("left join mk on mk.mkid = vw_jadwal.mkid").
+    	Where("krs.mhsid = ?", mhsID).
+    	Where("krs.pakid = ?", pakID).
+    	Where("tugas_kul.waktu_mulai_tugas <= ?", today).
+    	Where("tugas_kul.waktu_akhir_tugas >= ?", today).
+    	Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
 		Find(&activeAssignments).Error
 
 	return activeAssignments, err
