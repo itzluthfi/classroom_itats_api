@@ -304,7 +304,7 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 		Joins("left join mk on mk.mkid = vw_kelas_tawar.mkid").
 		Where("krs.mhsid = ?", mhsID).
 		Where("krs.pakid = ?", pakID).
-		Where("tugas_kul.waktu_mulai_tugas <= ?", today).
+		// Where("tugas_kul.waktu_mulai_tugas <= ?", today).
 		Where("tugas_kul.waktu_akhir_tugas >= ?", today).
 		Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
 		Find(&activeAssignments).Error
