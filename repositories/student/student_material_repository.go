@@ -317,8 +317,8 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 		)
 		WHERE src.mhsid = ?
 		  AND src.pakid = ?
-		  AND tugas_kul.waktu_mulai_tugas <= NOW()
-		  AND tugas_kul.waktu_akhir_tugas >= NOW()
+		  AND (tugas_kul.waktu_mulai_tugas IS NULL OR tugas_kul.waktu_mulai_tugas <= NOW())
+		  AND (tugas_kul.waktu_akhir_tugas IS NULL OR tugas_kul.waktu_akhir_tugas >= NOW())
 		  AND NOT EXISTS (
 				SELECT 1 FROM tugas_submission
 				WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul
