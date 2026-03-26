@@ -9,6 +9,8 @@ type Assignment struct {
 	AssignmentTitle  string    `gorm:"column:judul_tugas" json:"assignment_title"`
 	Description      string    `gorm:"column:deskripsi" json:"description"`
 	DueDate          time.Time `gorm:"column:batas_pengumpulan" json:"due_date"`
+	StartTime        time.Time `gorm:"column:waktu_mulai_tugas" json:"start_time"`
+	EndTime          time.Time `gorm:"column:waktu_akhir_tugas" json:"end_time"`
 	JNilID           string    `gorm:"column:jnilid" json:"j_nil_id"`
 	CreatedAt        time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"column:updated_at" json:"updated_at"`
