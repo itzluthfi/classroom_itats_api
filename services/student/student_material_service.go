@@ -15,7 +15,7 @@ type StudentMaterialService interface {
 	GetStudyAchievement(ctx context.Context, pakID string, mkID string, class string) ([]entities.StudyAchievement, error)
 	GetStudentMaterial(ctx context.Context, mkID string, class string, pakID string, weekID int) ([]entities.Material, error)
 	GetStudentAssignment(ctx context.Context, masterActivityID string, weekID float64, mhsID string) ([]entities.Assignment, error)
-	GetStudentAssignmentGroup(ctx context.Context, masterActivityID string) ([]entities.Assignment, error)
+	GetStudentAssignmentGroup(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
 	GetStudentScore(ctx context.Context, mhsID string, masterActivityID string) ([]entities.StudentAssignmentScore, error)
 	GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error)
 	GetActiveAssignment(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
@@ -42,8 +42,8 @@ func (s *studentMaterialService) GetStudentAssignment(ctx context.Context, maste
 	return s.studentMaterialRepository.GetStudentAssignment(ctx, masterActivityID, weekID, mhsID)
 }
 
-func (s *studentMaterialService) GetStudentAssignmentGroup(ctx context.Context, masterActivityID string) ([]entities.Assignment, error) {
-	return s.studentMaterialRepository.GetStudentAssignmentGroup(ctx, masterActivityID)
+func (s *studentMaterialService) GetStudentAssignmentGroup(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error) {
+	return s.studentMaterialRepository.GetStudentAssignmentGroup(ctx, masterActivityID, mhsID)
 }
 
 func (s *studentMaterialService) GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error) {

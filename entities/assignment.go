@@ -22,6 +22,7 @@ type Assignment struct {
 	Subjectname      string    `gorm:"column:mknama" json:"subject_name"`
 	JnilDesc         string    `gorm:"column:jnildesc" json:"j_nil_desc"`
 	TotalSubmited    int       `gorm:"column:jml_pengumpulan" json:"total_submited"`
+	SudahSubmit      bool      `gorm:"column:sudah_submit" json:"sudah_submit"`
 }
 
 type AssignmentJoin struct {

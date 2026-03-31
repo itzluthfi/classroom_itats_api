@@ -168,7 +168,22 @@ func (s *studentMaterialHandler) GetStudentAssignmentGroup(c *gin.Context) {
 		return
 	}
 
-	assignments, err = s.studentMaterialService.GetStudentAssignmentGroup(c.Request.Context(), filter["master_activity_id"].(string))
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf(fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
+		}
+
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+
+	assignments, err = s.studentMaterialService.GetStudentAssignmentGroup(c.Request.Context(), filter["master_activity_id"].(string), claims["name"].(string))
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})

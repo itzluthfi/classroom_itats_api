@@ -17,7 +17,7 @@ type StudentMaterialRepository interface {
 	GetStudyAchievement(ctx context.Context, pakID string, mkID string, class string) ([]entities.StudyAchievement, error)
 	GetStudentMaterial(ctx context.Context, mkID string, class string, pakID string, weekID int) ([]entities.Material, error)
 	GetStudentAssignment(ctx context.Context, masterActivityID string, weekID float64, mhsID string) ([]entities.Assignment, error)
-	GetStudentAssignmentGroup(ctx context.Context, masterActivityID string) ([]entities.Assignment, error)
+	GetStudentAssignmentGroup(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error)
 	GetStudentScore(ctx context.Context, mhsID string, masterActivityID string) ([]entities.StudentAssignmentScore, error)
 	GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error)
 	AssignmentCreated(ctx context.Context) ([]map[string]interface{}, error)
@@ -82,13 +82,24 @@ func (s *studentMaterialRepository) GetStudentMaterial(ctx context.Context, mkID
 	return studentMaterials, err
 }
 
-func (s *studentMaterialRepository) GetStudentAssignmentGroup(ctx context.Context, masterActivityID string) ([]entities.Assignment, error) {
+func (s *studentMaterialRepository) GetStudentAssignmentGroup(ctx context.Context, masterActivityID string, mhsID string) ([]entities.Assignment, error) {
 	studentAssignments := []entities.Assignment{}
 
-	err := s.db.WithContext(ctx).Table("tugas_kul").Select("tugas_kul.master_kegiatan_id, tugas_kul.weekid").
-		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
-		Where("master_kegiatan_id = ?", masterActivityID).Group("master_kegiatan_id, weekid").
-		Find(&studentAssignments).Error
+	rawSQL := `
+		SELECT DISTINCT ON (tugas_kul.weekid)
+			tugas_kul.*,
+			EXISTS (
+				SELECT 1 FROM tugas_submission
+				WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul
+				  AND tugas_submission.mhsid = ?
+			) AS sudah_submit
+		FROM tugas_kul
+		JOIN jnil ON tugas_kul.jnilid = jnil.jnilid
+		WHERE tugas_kul.master_kegiatan_id = ?
+		ORDER BY tugas_kul.weekid, tugas_kul.id_tugas_kul
+	`
+
+	err := s.db.WithContext(ctx).Raw(rawSQL, mhsID, masterActivityID).Scan(&studentAssignments).Error
 
 	return studentAssignments, err
 }
@@ -97,7 +108,7 @@ func (s *studentMaterialRepository) GetStudentAssignment(ctx context.Context, ma
 	studentAssignments := []entities.Assignment{}
 
 	err := s.db.WithContext(ctx).Table("tugas_kul").
-		Select("tugas_kul.*").
+		Select("tugas_kul.*, EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?) AS sudah_submit", mhsID).
 		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
 		Where("master_kegiatan_id = ?", masterActivityID).Where("weekid = ?", weekID).
 		Find(&studentAssignments).Error
@@ -270,12 +281,11 @@ func (s *studentMaterialRepository) GetActiveAssignment(ctx context.Context, mas
 	today := time.Now()
 
 	err := s.db.WithContext(ctx).Table("tugas_kul").
-		Select("tugas_kul.*").
+		Select("tugas_kul.*, EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?) AS sudah_submit", mhsID).
 		Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
 		Where("tugas_kul.master_kegiatan_id = ?", masterActivityID).
-		Where("tugas_kul.waktu_mulai_tugas <= ?", today).
-		Where("tugas_kul.waktu_akhir_tugas >= ?", today).
-		Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
+		Where("tugas_kul.waktu_mulai_tugas IS NULL OR tugas_kul.waktu_mulai_tugas <= ?", today).
+		Where("tugas_kul.waktu_akhir_tugas IS NULL OR tugas_kul.waktu_akhir_tugas >= ?", today).
 		Find(&activeAssignments).Error
 
 	return activeAssignments, err
@@ -298,7 +308,12 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 		SELECT DISTINCT ON (tugas_kul.id_tugas_kul)
 			tugas_kul.*,
 			mk.mknama,
-			src.kelas
+			src.kelas,
+			EXISTS (
+				SELECT 1 FROM tugas_submission
+				WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul
+				  AND tugas_submission.mhsid = ?
+			) AS sudah_submit
 		FROM tugas_kul
 		JOIN (
 			-- Jalur lama: via vw_kelas_tawar
@@ -319,14 +334,9 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 		  AND src.pakid = ?
 		  AND (tugas_kul.waktu_mulai_tugas IS NULL OR tugas_kul.waktu_mulai_tugas <= NOW())
 		  AND (tugas_kul.waktu_akhir_tugas IS NULL OR tugas_kul.waktu_akhir_tugas >= NOW())
-		  AND NOT EXISTS (
-				SELECT 1 FROM tugas_submission
-				WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul
-				  AND tugas_submission.mhsid = ?
-		  )
 	`
 
-	err := s.db.WithContext(ctx).Raw(rawSQL, mhsID, pakID, mhsID).Scan(&activeAssignments).Error
+	err := s.db.WithContext(ctx).Raw(rawSQL, mhsID, mhsID, pakID).Scan(&activeAssignments).Error
 
 	return activeAssignments, err
 }
