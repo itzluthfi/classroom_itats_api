@@ -283,7 +283,6 @@ func (s *studentMaterialRepository) GetActiveAssignment(ctx context.Context, mas
 
 func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error) {
 	activeAssignments := []entities.Assignment{}
-	today := time.Now()
 
 	// Get active pakid first if not provided
 	if pakID == "" {
@@ -294,20 +293,40 @@ func (s *studentMaterialRepository) GetHomeActiveAssignment(ctx context.Context,
 		}
 	}
 
-	// Query active unsubmitted assignments across all student's subjects
-	var err error
-	err = s.db.WithContext(ctx).Table("tugas_kul").
-    	Select("tugas_kul.*, mk.mknama, vw_jadwal.kelas").
-    	Joins("join jnil on tugas_kul.jnilid = jnil.jnilid").
-    	Joins("join vw_jadwal on vw_jadwal.id_master_kegiatan = tugas_kul.master_kegiatan_id").
-    	Joins("join krs on krs.mkid = vw_jadwal.mkid and krs.kelaskrs = vw_jadwal.kelas and krs.pakid = vw_jadwal.pakid").
-    	Joins("left join mk on mk.mkid = vw_jadwal.mkid").
-    	Where("krs.mhsid = ?", mhsID).
-    	Where("krs.pakid = ?", pakID).
-    	Where("tugas_kul.waktu_mulai_tugas <= ?", today).
-    	Where("tugas_kul.waktu_akhir_tugas >= ?", today).
-    	Where("NOT EXISTS (SELECT 1 FROM tugas_submission WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul AND tugas_submission.mhsid = ?)", mhsID).
-		Find(&activeAssignments).Error
+	// UNION query: support both old periods (via vw_kelas_tawar) and new periods (via jad)
+	rawSQL := `
+		SELECT DISTINCT ON (tugas_kul.id_tugas_kul)
+			tugas_kul.*,
+			mk.mknama,
+			src.kelas
+		FROM tugas_kul
+		JOIN (
+			-- Jalur lama: via vw_kelas_tawar
+			SELECT vw.id_master_kegiatan, vw.kelas, krs.mhsid, krs.pakid
+			FROM vw_kelas_tawar vw
+			JOIN krs ON krs.mkid = vw.mkid AND krs.kelaskrs = vw.kelas AND krs.pakid = vw.pakid
+			UNION
+			-- Jalur baru: via jad
+			SELECT jad.id_master_kegiatan, jad.kelas, krs.mhsid, krs.pakid
+			FROM jad
+			JOIN krs ON krs.mkid = jad.mkid AND krs.kelaskrs = jad.kelas AND krs.pakid = jad.pakid
+		) src ON src.id_master_kegiatan = tugas_kul.master_kegiatan_id
+		LEFT JOIN mk ON mk.mkid = COALESCE(
+			(SELECT mkid FROM vw_kelas_tawar WHERE id_master_kegiatan = tugas_kul.master_kegiatan_id LIMIT 1),
+			(SELECT mkid FROM jad WHERE id_master_kegiatan = tugas_kul.master_kegiatan_id LIMIT 1)
+		)
+		WHERE src.mhsid = ?
+		  AND src.pakid = ?
+		  AND (tugas_kul.waktu_mulai_tugas IS NULL OR tugas_kul.waktu_mulai_tugas <= NOW())
+		  AND (tugas_kul.waktu_akhir_tugas IS NULL OR tugas_kul.waktu_akhir_tugas >= NOW())
+		  AND NOT EXISTS (
+				SELECT 1 FROM tugas_submission
+				WHERE tugas_submission.tugas_kul_id = tugas_kul.id_tugas_kul
+				  AND tugas_submission.mhsid = ?
+		  )
+	`
+
+	err := s.db.WithContext(ctx).Raw(rawSQL, mhsID, pakID, mhsID).Scan(&activeAssignments).Error
 
 	return activeAssignments, err
 }
