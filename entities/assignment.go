@@ -23,6 +23,9 @@ type Assignment struct {
 	JnilDesc         string    `gorm:"column:jnildesc" json:"j_nil_desc"`
 	TotalSubmited    int       `gorm:"column:jml_pengumpulan" json:"total_submited"`
 	SudahSubmit      bool      `gorm:"column:sudah_submit" json:"sudah_submit"`
+	SubmissionFile   string    `gorm:"column:submission_file" json:"submission_file"`
+	SubmissionLink   string    `gorm:"column:submission_link" json:"submission_link"`
+	SubmissionDate   time.Time `gorm:"column:submission_date" json:"submission_date"`
 }
 
 type AssignmentJoin struct {
