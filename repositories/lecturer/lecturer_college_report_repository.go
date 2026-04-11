@@ -28,7 +28,17 @@ func NewLecturerCollegeReportRepository(db *gorm.DB) *lecturerCollegeReportRepos
 func (r *lecturerCollegeReportRepository) GetSubjectCollegeReport(ctx context.Context, mkID string, class string, hourID string, collegeType string) ([]entities.Lecture, error) {
 	lectures := []entities.Lecture{}
 
-	err := r.db.WithContext(ctx).Raw(`SELECT kul.*, (SELECT COUNT(*) FROM absen WHERE absen.pakid = kul.pakid AND absen.mkid = kul.mkid and absen.jurid = kul.jurid AND absen.kelas = kul.kelas and absen.kultype = kul.kultype and absen.jamid = kul.jamid and absen.weekid = kul.weekid) as mahasiswa_absen FROM kul where kul.mkid = ? and kelas = ? and jamid = ? and kultype = ? order by weekid ASC`, mkID, class, hourID, collegeType).Find(&lectures).Error
+	query := `SELECT kul.*, (SELECT COUNT(*) FROM absen WHERE absen.pakid = kul.pakid AND absen.mkid = kul.mkid and absen.jurid = kul.jurid AND absen.kelas = kul.kelas and absen.kultype = kul.kultype and absen.jamid = kul.jamid and absen.weekid = kul.weekid) as mahasiswa_absen FROM kul where kul.mkid = ? and kelas = ? and kultype = ?`
+	args := []interface{}{mkID, class, collegeType}
+
+	if hourID != "" {
+		query += ` and jamid = ?`
+		args = append(args, hourID)
+	}
+
+	query += ` order by weekid ASC`
+
+	err := r.db.WithContext(ctx).Raw(query, args...).Find(&lectures).Error
 
 	return lectures, err
 }
