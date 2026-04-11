@@ -30,7 +30,7 @@ func (s *subjectMemberHandler) SubjectMember(c *gin.Context) {
 	err := c.ShouldBindJSON(&filter)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid JSON mapping: " + err.Error()})
 		return
 	}
 

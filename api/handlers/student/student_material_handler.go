@@ -168,7 +168,27 @@ func (s *studentMaterialHandler) GetStudentAssignmentGroup(c *gin.Context) {
 		return
 	}
 
-	assignments, err = s.studentMaterialService.GetStudentAssignmentGroup(c.Request.Context(), filter["master_activity_id"].(string))
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf(fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
+		}
+
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
+
+	academicPeriod, _ := filter["academic_period"].(string)
+	subjectID, _ := filter["subject_id"].(string)
+	class, _ := filter["class"].(string)
+
+	assignments, err = s.studentMaterialService.GetStudentAssignmentGroup(c.Request.Context(), academicPeriod, subjectID, class, mhsID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
@@ -203,8 +223,13 @@ func (s *studentMaterialHandler) GetStudentAssignmentScores(c *gin.Context) {
 	}
 
 	claims, _ := token.Claims.(jwt.MapClaims)
+	mhsID := claims["name"].(string)
 
-	studentAssignmentScores, err = s.studentMaterialService.GetStudentScore(c.Request.Context(), claims["name"].(string), filter["master_activity_id"].(string))
+	academicPeriod, _ := filter["academic_period"].(string)
+	subjectID, _ := filter["subject_id"].(string)
+	class, _ := filter["class"].(string)
+
+	studentAssignmentScores, err = s.studentMaterialService.GetStudentScore(c.Request.Context(), mhsID, academicPeriod, subjectID, class)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
@@ -271,9 +296,12 @@ func (s *studentMaterialHandler) GetActiveAssignment(c *gin.Context) {
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 	mhsID := claims["name"].(string)
-	masterActivityID := filter["master_activity_id"].(string)
 
-	activeAssignments, err := s.studentMaterialService.GetActiveAssignment(c.Request.Context(), masterActivityID, mhsID)
+	academicPeriod, _ := filter["academic_period"].(string)
+	subjectID, _ := filter["subject_id"].(string)
+	class, _ := filter["class"].(string)
+
+	activeAssignments, err := s.studentMaterialService.GetActiveAssignment(c.Request.Context(), academicPeriod, subjectID, class, mhsID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
@@ -298,8 +326,9 @@ func (s *studentMaterialHandler) GetHomeActiveAssignment(c *gin.Context) {
 
 	claims, _ := token.Claims.(jwt.MapClaims)
 	mhsID := claims["name"].(string)
+	period := c.DefaultQuery("period", "")
 
-	activeAssignments, err := s.studentMaterialService.GetHomeActiveAssignment(c.Request.Context(), mhsID)
+	activeAssignments, err := s.studentMaterialService.GetHomeActiveAssignment(c.Request.Context(), mhsID, period)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
