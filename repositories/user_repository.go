@@ -62,16 +62,44 @@ func (u *userRepository) Login(ctx context.Context, userLogin *input.UserLogin) 
 	// TEMPORARY: Bypass password check for testing
 	// if user.Pass == userLogin.Pass {
 	if true {
-		res := map[string]interface{}{}
+		var results []map[string]interface{}
 
 		err := u.db.WithContext(ctx).
 			Table("users").
 			Select("users.name as name, role.name as role").
 			Joins("JOIN users_roles ON users.uid = users_roles.uid").
-			Joins("JOIN role ON role.rid = users_roles.rid").Take(&res, "users.uid = ?", user.UID).Error
+			Joins("JOIN role ON role.rid = users_roles.rid").Find(&results, "users.uid = ?", user.UID).Error
 
 		if err != nil {
 			return &jwt_claim.Claim{}, err
+		}
+
+		if len(results) == 0 {
+			return &jwt_claim.Claim{}, errors.New("akun tidak memiliki role")
+		}
+
+		var selectedRole string
+		var userName string = results[0]["name"].(string)
+		
+		isDosen := false
+		isMahasiswa := false
+
+		for _, res := range results {
+			roleName := res["role"].(string)
+			if roleName == "Dosen" {
+				isDosen = true
+			} else if roleName == "Mahasiswa" {
+				isMahasiswa = true
+			}
+		}
+
+		// Prioritaskan role Dosen, lalu Mahasiswa, lalu fallback ke role pertama
+		if isDosen {
+			selectedRole = "Dosen"
+		} else if isMahasiswa {
+			selectedRole = "Mahasiswa"
+		} else {
+			selectedRole = results[0]["role"].(string)
 		}
 
 		now := time.Now()
@@ -79,8 +107,8 @@ func (u *userRepository) Login(ctx context.Context, userLogin *input.UserLogin) 
 		year := now.AddDate(1, 0, 0)
 
 		claim := jwt_claim.Claim{
-			Name: res["name"].(string),
-			Role: res["role"].(string),
+			Name: userName,
+			Role: selectedRole,
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(year),
 				IssuedAt:  jwt.NewNumericDate(time.Now()),
