@@ -27,14 +27,38 @@ func (l *lecturerAssignmentRepository) GetLecturerCreatedAssignment(ctx context.
 	assignments := []entities.Assignment{}
 
 	err := l.db.WithContext(ctx).Raw(`
-		select tugas_kul.*, klskul.kelas, klskul.mknama,jnil.jnildesc, (SELECT count(*) FROM tugas_submission where tugas_kul_id = tugas_kul.id_tugas_kul) AS jml_pengumpulan
-		from tugas_kul
-		join (SELECT DISTINCT id_master_kegiatan, mknama, kelas, dosid, pakid FROM vw_kelas_tawar) AS klskul on
-		tugas_kul.master_kegiatan_id = klskul.id_master_kegiatan
-		join jnil on jnil.jnilid = tugas_kul.jnilid
-		where (tugas_kul.master_kegiatan_id in ((select id_master_kegiatan from vw_kelas_tawar where pakid = ? and dosid = ?))
-		or tugas_kul.master_kegiatan_id in ((select id_jad_master from jadteam where dosid = ?)))
-	`, pakID, dosID, dosID).Find(&assignments).Error
+		SELECT DISTINCT ON (tugas_kul.id_tugas_kul)
+			tugas_kul.*,
+			src.kelas,
+			mk.mknama,
+			jnil.jnildesc,
+			(SELECT count(*) FROM tugas_submission WHERE tugas_kul_id = tugas_kul.id_tugas_kul) AS jml_pengumpulan
+		FROM tugas_kul
+		JOIN (
+			-- Jalur lama: via vw_kelas_tawar
+			SELECT id_master_kegiatan, kelas, mknama, dosid, pakid
+			FROM vw_kelas_tawar
+			WHERE pakid = ? AND dosid = ?
+			UNION
+			-- Jalur baru: via jad
+			SELECT jad.id_master_kegiatan, jad.kelas, mk2.mknama, jad.dosid, jad.pakid
+			FROM jad
+			JOIN mk mk2 ON mk2.mkid = jad.mkid
+			WHERE jad.pakid = ? AND jad.dosid = ?
+			UNION
+			-- Jalur tim dosen: via jadteam
+			SELECT jad2.id_master_kegiatan, jad2.kelas, mk3.mknama, jt.dosid, jad2.pakid
+			FROM jadteam jt
+			JOIN jad jad2 ON jad2.id_master_kegiatan = jt.id_jad_master
+			JOIN mk mk3 ON mk3.mkid = jad2.mkid
+			WHERE jt.dosid = ?
+		) src ON src.id_master_kegiatan = tugas_kul.master_kegiatan_id
+		JOIN jnil ON jnil.jnilid = tugas_kul.jnilid
+		LEFT JOIN mk ON mk.mkid = COALESCE(
+			(SELECT mkid FROM vw_kelas_tawar WHERE id_master_kegiatan = tugas_kul.master_kegiatan_id LIMIT 1),
+			(SELECT mkid FROM jad WHERE id_master_kegiatan = tugas_kul.master_kegiatan_id LIMIT 1)
+		)
+	`, pakID, dosID, pakID, dosID, dosID).Scan(&assignments).Error
 
 	return assignments, err
 }
