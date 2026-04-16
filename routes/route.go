@@ -130,6 +130,8 @@ func (r *route) Routes() {
 	lecturer.POST("/colleges/reports/detail", r.lecturerCollegeReportHandler.GetSubjectCollegeReportByKulID)
 	lecturer.POST("/colleges/materials", r.lecturerMaterialHandler.GetMaterialSelected)
 	lecturer.GET("/materials", r.lecturerMaterialHandler.GetMaterials)
+	lecturer.POST("/colleges/team-weeks", r.lecturerCollegeReportHandler.GetTeamWeeks)
+	lecturer.GET("/colleges/rps", r.lecturerCollegeReportHandler.GetRPSDetail)
 
 	// Webhook endpoints — diamankan dengan x_api_key
 	webhook := r.route.Group("/api/v1/internal")

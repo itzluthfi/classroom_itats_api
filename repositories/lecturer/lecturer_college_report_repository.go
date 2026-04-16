@@ -17,6 +17,8 @@ type LecturerCollegeReportRepository interface {
 	EditCollege(ctx context.Context, lecture entities.Lecture, materials []entities.LectureMaterial) error
 	DeleteCollege(ctx context.Context, kulid string) error
 	GetSubjectCollegeReportByKulID(ctx context.Context, kulID string) (entities.Lecture, error)
+	GetTeamWeeks(ctx context.Context, dosID string, mkID string, kelas string, pakID string) ([]entities.Week, error)
+	GetRPSDetail(ctx context.Context, mkID string, weekID string) (map[string]interface{}, error)
 }
 
 func NewLecturerCollegeReportRepository(db *gorm.DB) *lecturerCollegeReportRepository {
@@ -113,4 +115,53 @@ func (r *lecturerCollegeReportRepository) DeleteCollege(ctx context.Context, kul
 			return nil
 		},
 	)
+}
+
+func (r *lecturerCollegeReportRepository) GetTeamWeeks(ctx context.Context, dosID string, mkID string, kelas string, pakID string) ([]entities.Week, error) {
+	weeks := []entities.Week{}
+
+	// Cek apakah dosen adalah anggota team teaching
+	// Kita join jad untuk mendapatkan id_master_kegiatan karena parameter yang dimiliki adalah mkid dan kelas
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT week.* FROM jadteamweek
+		JOIN week ON week.weekid = jadteamweek.weekid
+		JOIN jad ON jad.id_master_kegiatan = jadteamweek.id_jad_master
+		WHERE jadteamweek.dosid = ? AND jad.mkid = ? AND jad.kelas = ? AND jad.pakid = ?
+		ORDER BY jadteamweek.weekid ASC
+	`, dosID, mkID, kelas, pakID).Scan(&weeks).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Jika tidak ada data spesifik team teaching, kembalikan 16 minggu standar
+	if len(weeks) == 0 {
+		err = r.db.WithContext(ctx).Table("week").Order("weekid ASC").Find(&weeks).Error
+	}
+
+	return weeks, err
+}
+
+func (r *lecturerCollegeReportRepository) GetRPSDetail(ctx context.Context, mkID string, weekID string) (map[string]interface{}, error) {
+	var results []map[string]interface{}
+
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT week.weekid, week.weekno, c.deskripsi_cp, r.deskripsi_rp, r.kode, m.id_mapping_rps 
+		FROM week 
+		LEFT JOIN mapping_rps as m ON week.weekid = m.weekid 
+		JOIN rencana_pembelajaran as r ON m.id_rencana_pembelajaran = r.id_rencana_pembelajaran 
+		JOIN capaian_pembelajaran as c ON c.id_capaian_pembelajaran = r.capaian_pembelajaran_id 
+		WHERE r.mkid = ? AND week.weekid = ? 
+		LIMIT 1;
+	`, mkID, weekID).Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return map[string]interface{}{}, nil
+	}
+
+	return results[0], nil
 }
