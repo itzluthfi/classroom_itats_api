@@ -23,6 +23,7 @@ type route struct {
 	lecturerAssignmentHandler    lecturer_handlers.LecturerAssignmentHandler
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler
 	lecturerMaterialHandler      lecturer_handlers.LecturerMaterialHandler
+	lecturerMicrosoftHandler     *lecturer_handlers.LecturerMicrosoftHandler
 	webhookHandler               handlers.WebhookHandler
 }
 
@@ -42,6 +43,7 @@ func NewRoute(run *gin.Engine,
 	lecturerAssignmentHandler lecturer_handlers.LecturerAssignmentHandler,
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler,
 	lecturerMaterialHandler lecturer_handlers.LecturerMaterialHandler,
+	lecturerMicrosoftHandler *lecturer_handlers.LecturerMicrosoftHandler,
 	webhookHandler handlers.WebhookHandler,
 ) *route {
 	return &route{
@@ -58,6 +60,7 @@ func NewRoute(run *gin.Engine,
 		lecturerAssignmentHandler:    lecturerAssignmentHandler,
 		lecturerCollegeReportHandler: lecturerCollegeReportHandler,
 		lecturerMaterialHandler:      lecturerMaterialHandler,
+		lecturerMicrosoftHandler:     lecturerMicrosoftHandler,
 		webhookHandler:               webhookHandler,
 	}
 }
@@ -132,6 +135,12 @@ func (r *route) Routes() {
 	lecturer.GET("/materials", r.lecturerMaterialHandler.GetMaterials)
 	lecturer.POST("/colleges/team-weeks", r.lecturerCollegeReportHandler.GetTeamWeeks)
 	lecturer.GET("/colleges/rps", r.lecturerCollegeReportHandler.GetRPSDetail)
+
+	// Microsoft Teams OAuth & Meeting
+	lecturer.GET("/microsoft/auth-url", r.lecturerMicrosoftHandler.GetAuthURL)
+	lecturer.POST("/microsoft/callback", r.lecturerMicrosoftHandler.HandleCallback)
+	lecturer.POST("/microsoft/create-meeting", r.lecturerMicrosoftHandler.CreateMeeting)
+	lecturer.GET("/microsoft/status", r.lecturerMicrosoftHandler.CheckLinkedStatus)
 
 	// Webhook endpoints — diamankan dengan x_api_key
 	webhook := r.route.Group("/api/v1/internal")
