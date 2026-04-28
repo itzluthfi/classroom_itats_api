@@ -121,7 +121,10 @@ func main() {
 	presenceCronService := cron_service.NewPresenceCronService(studentPresenceRepository)
 	taskCronService := cron_service.NewTaskCronService(studentMaterialRepository)
 
-	firebaseHelper := helper.NewSendFirebaseMessage(firebaseApp, presenceCronService, taskCronService)
+	notificationRepo := repositories.NewNotificationRepository(conn)
+	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
+
+	firebaseHelper := helper.NewSendFirebaseMessage(firebaseApp, presenceCronService, taskCronService, notificationRepo)
 
 	webhookHandler := handlers.NewWebhookHandler(firebaseHelper)
 
@@ -139,6 +142,7 @@ func main() {
 		lecturerCollegeReporthandler,
 		lecturerMaterialhandler,
 		webhookHandler,
+		notificationHandler,
 	)
 
 	route.Routes()

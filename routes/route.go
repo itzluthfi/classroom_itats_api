@@ -24,6 +24,7 @@ type route struct {
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler
 	lecturerMaterialHandler      lecturer_handlers.LecturerMaterialHandler
 	webhookHandler               handlers.WebhookHandler
+	notificationHandler          handlers.NotificationHandler
 }
 
 type Route interface {
@@ -43,6 +44,7 @@ func NewRoute(run *gin.Engine,
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler,
 	lecturerMaterialHandler lecturer_handlers.LecturerMaterialHandler,
 	webhookHandler handlers.WebhookHandler,
+	notificationHandler handlers.NotificationHandler,
 ) *route {
 	return &route{
 		route:                        run,
@@ -59,6 +61,7 @@ func NewRoute(run *gin.Engine,
 		lecturerCollegeReportHandler: lecturerCollegeReportHandler,
 		lecturerMaterialHandler:      lecturerMaterialHandler,
 		webhookHandler:               webhookHandler,
+		notificationHandler:          notificationHandler,
 	}
 }
 
@@ -138,4 +141,11 @@ func (r *route) Routes() {
 	webhook.Use(middlewares.ApiKey())
 	webhook.POST("/notify/presence", r.webhookHandler.TriggerPresenceNotification)
 	webhook.POST("/notify/assignment", r.webhookHandler.TriggerAssignmentNotification)
+
+	// Notification endpoints (authenticated)
+	notif := private.Group("/notifications")
+	notif.GET("", r.notificationHandler.GetNotifications)
+	notif.GET("/unread-count", r.notificationHandler.UnreadCount)
+	notif.PATCH("/read-all", r.notificationHandler.MarkAllRead)
+	notif.PATCH("/:id/read", r.notificationHandler.MarkOneRead)
 }
