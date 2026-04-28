@@ -12,6 +12,7 @@ import (
 	"classroom_itats_api/services"
 	cron_service "classroom_itats_api/services/cron"
 	lecturer_services "classroom_itats_api/services/lecturer"
+	microsoft_services "classroom_itats_api/services/microsoft"
 	student_services "classroom_itats_api/services/student"
 	"net/http"
 	"time"
@@ -116,12 +117,19 @@ func main() {
 	lecturerMaterialService := lecturer_services.NewLecturerMaterialService(lecturerMaterialRepository)
 	lecturerMaterialhandler := lecturer_handlers.NewLecturerMaterialHandlder(lecturerMaterialService)
 
+	// Microsoft Teams OAuth Service
+	msAuthService := microsoft_services.NewMicrosoftAuthService(conn)
+	lecturerMicrosoftHandler := lecturer_handlers.NewLecturerMicrosoftHandler(msAuthService)
+
 	firebaseApp := initializeServiceAccountID()
 
 	presenceCronService := cron_service.NewPresenceCronService(studentPresenceRepository)
 	taskCronService := cron_service.NewTaskCronService(studentMaterialRepository)
 
-	firebaseHelper := helper.NewSendFirebaseMessage(firebaseApp, presenceCronService, taskCronService)
+	notificationRepo := repositories.NewNotificationRepository(conn)
+	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
+
+	firebaseHelper := helper.NewSendFirebaseMessage(firebaseApp, presenceCronService, taskCronService, notificationRepo)
 
 	webhookHandler := handlers.NewWebhookHandler(firebaseHelper)
 
@@ -138,7 +146,9 @@ func main() {
 		lecturerAssignmenthandler,
 		lecturerCollegeReporthandler,
 		lecturerMaterialhandler,
+		lecturerMicrosoftHandler,
 		webhookHandler,
+		notificationHandler,
 	)
 
 	route.Routes()

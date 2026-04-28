@@ -17,6 +17,8 @@ type StudentSubjectRepository interface {
 	GetSubjectByStudentIDWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.StudentSubject, error)
 	GetSubjectClassStudentWithPeriod(ctx context.Context, mhsID string, pakID string) ([]entities.SubjectSchedule, error)
 	StudyPeriodes(ctx context.Context, mhsID string) ([]entities.AcademicPeriod, error)
+	GetActiveRoomLoans(ctx context.Context) ([]entities.RoomKeyLoan, error)
+	GetTodayHariCode(ctx context.Context, dayOfWeek int) (string, error)
 }
 
 func NewStudentSubjectRepository(db *gorm.DB) *studentSubjectRepository {
@@ -65,7 +67,7 @@ func (s *studentSubjectRepository) GetSubjectClassStudent(ctx context.Context, m
 	}
 
 	err = s.db.WithContext(ctx).Table("krs").
-		Distinct("krs.mkid", "jad.kultipeid", "jad.ruangid", "hari.haridesc", "jam.jammulai", "jam.jamhingga").
+		Distinct("krs.mkid", "jad.kultipeid", "jad.ruangid", "hari.haridesc", "jad.hari as hari_code", "jam.jammulai", "jam.jamhingga", "jad.sks").
 		Joins("join mk on mk.mkid = krs.mkid").
 		Joins("join pak on pak.pakid = krs.pakid").
 		Joins("join jad on mk.mkid = jad.mkid and pak.pakid = jad.pakid and krs.kelaskrs = jad.kelas").
@@ -103,7 +105,7 @@ func (s *studentSubjectRepository) GetSubjectClassStudentWithPeriod(ctx context.
 	subjectSchedules := []entities.SubjectSchedule{}
 
 	err := s.db.WithContext(ctx).Table("krs").
-		Distinct("krs.mkid", "jad.kultipeid", "jad.ruangid", "hari.haridesc", "jam.jammulai", "jam.jamhingga").
+		Distinct("krs.mkid", "jad.kultipeid", "jad.ruangid", "hari.haridesc", "jad.hari as hari_code", "jam.jammulai", "jam.jamhingga", "jad.sks").
 		Joins("join mk on mk.mkid = krs.mkid").
 		Joins("join pak on pak.pakid = krs.pakid").
 		Joins("join jad on mk.mkid = jad.mkid and pak.pakid = jad.pakid and krs.kelaskrs = jad.kelas").
@@ -129,4 +131,32 @@ func (s *studentSubjectRepository) StudyPeriodes(ctx context.Context, mhsID stri
 		Find(&academicPeriods).Error
 
 	return academicPeriods, err
+}
+
+func (s *studentSubjectRepository) GetActiveRoomLoans(ctx context.Context) ([]entities.RoomKeyLoan, error) {
+	loans := []entities.RoomKeyLoan{}
+
+	err := s.db.WithContext(ctx).
+		Table("peminjaman_ruang").
+		Where("waktu_kembali IS NULL").
+		Order("waktu_pinjam DESC, id_peminjaman_ruang DESC").
+		Find(&loans).Error
+
+	return loans, err
+}
+
+func (s *studentSubjectRepository) GetTodayHariCode(ctx context.Context, dayOfWeek int) (string, error) {
+	var result entities.TodayHariCode
+
+	err := s.db.WithContext(ctx).
+		Table("hari").
+		Select("hari").
+		Where("day = ?", dayOfWeek).
+		First(&result).Error
+
+	if err != nil {
+		return "", err
+	}
+
+	return result.HariCode, nil
 }

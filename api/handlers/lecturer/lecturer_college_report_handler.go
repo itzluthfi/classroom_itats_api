@@ -21,6 +21,8 @@ type LecturerCollegeReportHandler interface {
 	EditCollege(c *gin.Context)
 	DeleteCollege(c *gin.Context)
 	GetSubjectCollegeReportByKulID(c *gin.Context)
+	GetTeamWeeks(c *gin.Context)
+	GetRPSDetail(c *gin.Context)
 }
 
 func NewLecturerCollegeReportHandlder(lecturerCollegeReportService lecturer_services.LecturerCollegeReportService) *lecturerCollegeReportHandler {
@@ -204,4 +206,64 @@ func (l *lecturerCollegeReportHandler) GetSubjectCollegeReportByKulID(c *gin.Con
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get data college report", "data": lecture})
+}
+
+func (l *lecturerCollegeReportHandler) GetTeamWeeks(c *gin.Context) {
+	filter := map[string]interface{}{}
+
+	err := c.ShouldBindJSON(&filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := jwt.Parse(c.GetHeader("token"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf(fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
+		}
+
+		return []byte(viper.GetString("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims, _ := token.Claims.(jwt.MapClaims)
+
+	// kita ambil pakID (AcademicPeriodID) dari profil dosen/payload. Karena pakid biasanya ada di payload jika dari subject.
+	// Kita asumsikan dikirim di filter["academic_period_id"] atau kita ambil default jika tidak ada
+	pakID := ""
+	if p, ok := filter["academic_period_id"].(string); ok {
+		pakID = p
+	}
+
+	res, err := l.lecturerCollegeReportService.GetTeamWeeks(c.Request.Context(), claims["name"].(string), filter["mkid"].(string), filter["kelas"].(string), pakID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get team weeks", "data": res})
+}
+
+func (l *lecturerCollegeReportHandler) GetRPSDetail(c *gin.Context) {
+	mkID := c.Query("mkid")
+	weekID := c.Query("weekid")
+
+	if mkID == "" || weekID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mkid and weekid required"})
+		return
+	}
+
+	res, err := l.lecturerCollegeReportService.GetRPSDetail(c.Request.Context(), mkID, weekID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "success get rps details", "data": res})
 }

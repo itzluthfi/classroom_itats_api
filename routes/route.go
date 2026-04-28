@@ -23,7 +23,9 @@ type route struct {
 	lecturerAssignmentHandler    lecturer_handlers.LecturerAssignmentHandler
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler
 	lecturerMaterialHandler      lecturer_handlers.LecturerMaterialHandler
+	lecturerMicrosoftHandler     *lecturer_handlers.LecturerMicrosoftHandler
 	webhookHandler               handlers.WebhookHandler
+	notificationHandler          handlers.NotificationHandler
 }
 
 type Route interface {
@@ -42,7 +44,9 @@ func NewRoute(run *gin.Engine,
 	lecturerAssignmentHandler lecturer_handlers.LecturerAssignmentHandler,
 	lecturerCollegeReportHandler lecturer_handlers.LecturerCollegeReportHandler,
 	lecturerMaterialHandler lecturer_handlers.LecturerMaterialHandler,
+	lecturerMicrosoftHandler *lecturer_handlers.LecturerMicrosoftHandler,
 	webhookHandler handlers.WebhookHandler,
+	notificationHandler handlers.NotificationHandler,
 ) *route {
 	return &route{
 		route:                        run,
@@ -58,7 +62,9 @@ func NewRoute(run *gin.Engine,
 		lecturerAssignmentHandler:    lecturerAssignmentHandler,
 		lecturerCollegeReportHandler: lecturerCollegeReportHandler,
 		lecturerMaterialHandler:      lecturerMaterialHandler,
+		lecturerMicrosoftHandler:     lecturerMicrosoftHandler,
 		webhookHandler:               webhookHandler,
+		notificationHandler:          notificationHandler,
 	}
 }
 
@@ -130,10 +136,25 @@ func (r *route) Routes() {
 	lecturer.POST("/colleges/reports/detail", r.lecturerCollegeReportHandler.GetSubjectCollegeReportByKulID)
 	lecturer.POST("/colleges/materials", r.lecturerMaterialHandler.GetMaterialSelected)
 	lecturer.GET("/materials", r.lecturerMaterialHandler.GetMaterials)
+	lecturer.POST("/colleges/team-weeks", r.lecturerCollegeReportHandler.GetTeamWeeks)
+	lecturer.GET("/colleges/rps", r.lecturerCollegeReportHandler.GetRPSDetail)
+
+	// Microsoft Teams OAuth & Meeting
+	lecturer.GET("/microsoft/auth-url", r.lecturerMicrosoftHandler.GetAuthURL)
+	lecturer.POST("/microsoft/callback", r.lecturerMicrosoftHandler.HandleCallback)
+	lecturer.POST("/microsoft/create-meeting", r.lecturerMicrosoftHandler.CreateMeeting)
+	lecturer.GET("/microsoft/status", r.lecturerMicrosoftHandler.CheckLinkedStatus)
 
 	// Webhook endpoints — diamankan dengan x_api_key
 	webhook := r.route.Group("/api/v1/internal")
 	webhook.Use(middlewares.ApiKey())
 	webhook.POST("/notify/presence", r.webhookHandler.TriggerPresenceNotification)
 	webhook.POST("/notify/assignment", r.webhookHandler.TriggerAssignmentNotification)
+
+	// Notification endpoints (authenticated)
+	notif := private.Group("/notifications")
+	notif.GET("", r.notificationHandler.GetNotifications)
+	notif.GET("/unread-count", r.notificationHandler.UnreadCount)
+	notif.PATCH("/read-all", r.notificationHandler.MarkAllRead)
+	notif.PATCH("/:id/read", r.notificationHandler.MarkOneRead)
 }

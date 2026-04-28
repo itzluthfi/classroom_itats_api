@@ -67,6 +67,29 @@ type SubjectSchedule struct {
 	SubjectType  string `gorm:"column:kultipeid" json:"subject_type"`
 	SubjectRoom  string `gorm:"column:ruangid" json:"subject_room"`
 	Day          string `gorm:"column:haridesc" json:"day"`
+	DayCode      string `gorm:"column:hari_code" json:"day_code"`
 	TimeStart    string `gorm:"column:jammulai" json:"time_start"`
 	TimeEnd      string `gorm:"column:jamhingga" json:"time_end"`
+	SKS          int    `gorm:"column:sks" json:"sks"`
+	ClassStatus  string `json:"class_status"` // "", "sedang_berlangsung", "kunci_diambil", "jadwal_aktif"
 }
+
+// RoomKeyLoan represents an active key loan from peminjaman_ruang table
+type RoomKeyLoan struct {
+	ID            int    `gorm:"column:id_peminjaman_ruang;primaryKey"`
+	RoomID        string `gorm:"column:ruangid"`
+	BorrowerDosID string `gorm:"column:dosid_peminjam"`
+	LoanDate      string `gorm:"column:tanggal_pinjam"`
+	LoanTime      string `gorm:"column:waktu_pinjam"`
+	ReturnTime    string `gorm:"column:waktu_kembali"`
+}
+
+func (RoomKeyLoan) TableName() string {
+	return "peminjaman_ruang"
+}
+
+// TodayHariCode is used to look up today's hari code from the hari table
+type TodayHariCode struct {
+	HariCode string `gorm:"column:hari"`
+}
+

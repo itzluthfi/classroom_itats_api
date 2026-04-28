@@ -18,6 +18,8 @@ type LecturerCollegeReportService interface {
 	EditCollege(ctx context.Context, lecture entities.Lecture, materials []entities.LectureMaterial) error
 	DeleteCollege(ctx context.Context, kulid string) error
 	GetSubjectCollegeReportByKulID(ctx context.Context, kulID string) (entities.Lecture, error)
+	GetTeamWeeks(ctx context.Context, dosID string, mkID string, kelas string, pakID string) ([]entities.Week, error)
+	GetRPSDetail(ctx context.Context, mkID string, weekID string) (map[string]interface{}, error)
 }
 
 func NewLecturerCollegeReportService(lecturerCollegeReportRepository lecturer_repositories.LecturerCollegeReportRepository) *lecturerCollegeReportService {
@@ -68,4 +70,12 @@ func (r *lecturerCollegeReportService) DeleteCollege(ctx context.Context, kulid 
 
 func (r *lecturerCollegeReportService) GetSubjectCollegeReportByKulID(ctx context.Context, kulID string) (entities.Lecture, error) {
 	return r.lecturerCollegeReportRepository.GetSubjectCollegeReportByKulID(ctx, kulID)
+}
+
+func (r *lecturerCollegeReportService) GetTeamWeeks(ctx context.Context, dosID string, mkID string, kelas string, pakID string) ([]entities.Week, error) {
+	return r.lecturerCollegeReportRepository.GetTeamWeeks(ctx, dosID, mkID, kelas, pakID)
+}
+
+func (r *lecturerCollegeReportService) GetRPSDetail(ctx context.Context, mkID string, weekID string) (map[string]interface{}, error) {
+	return r.lecturerCollegeReportRepository.GetRPSDetail(ctx, mkID, weekID)
 }
