@@ -69,10 +69,23 @@ func NewRoute(run *gin.Engine,
 }
 
 func (r *route) Routes() {
+	// Health Check Route (Root)
+	r.route.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "success",
+			"message": "API Classroom ITATS is running!",
+		})
+	})
+
 	public := r.route.Group("/api/v1")
-	public.POST("/login", r.userHandler.Login)
-	public.PUT("/login/info", r.userHandler.StoreLoginInfo)
 	public.PUT("/logout", r.userHandler.Logout)
+
+	// Auth Mobile Endpoint (Diubah ke /masuk untuk bypass Cloudflare WAF)
+	// Wajib menggunakan HMAC Signature untuk mencegah Brute-Force Hacker
+	mobileAuth := r.route.Group("/api/v1")
+	mobileAuth.Use(middlewares.HmacSignature())
+	mobileAuth.POST("/masuk", r.userHandler.Login)
+	mobileAuth.PUT("/masuk/info", r.userHandler.StoreLoginInfo)
 
 	verify := public.Group("/verify-npm")
 	verify.Use(middlewares.ApiKey())
@@ -83,6 +96,7 @@ func (r *route) Routes() {
 
 	private := r.route.Group("/api/v1")
 	private.Use(middlewares.Auth())
+	private.Use(middlewares.HmacSignature())
 	private.POST("/all/student", r.userHandler.GetDataMhs)
 	private.POST("/subjects/forums", r.forumHandler.Forum)
 	private.POST("/subjects/forums/store", r.forumHandler.StoreAnnouncement)
