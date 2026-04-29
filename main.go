@@ -19,6 +19,7 @@ import (
 
 	"context"
 	"log"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/spf13/viper"
@@ -52,7 +53,7 @@ func initializeServiceAccountID() *firebase.App {
 		ProjectID:        "classroomitats", // Sesuai dengan prefix file json Anda
 		ServiceAccountID: "firebase-adminsdk-fowjd@871324361748.iam.gserviceaccount.com",
 	}
-	// Menggunakan file yang baru saja Anda masukkan ke root folder
+	// Menggunakan file JSON yang Anda masukkan manual di root folder server nanti
 	opt := option.WithCredentialsFile("./classroomitats-firebase-adminsdk-fowjd-9439af2e0e.json")
 	app, err := firebase.NewApp(context.Background(), conf, opt)
 	if err != nil {
