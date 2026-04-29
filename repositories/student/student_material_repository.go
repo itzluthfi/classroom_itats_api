@@ -253,7 +253,7 @@ func (s *studentMaterialRepository) AssignmentCreated(ctx context.Context) ([]ma
 					tokens = append(tokens, mt.MobileToken)
 				}
 
-				
+				usr := map[string]interface{}{}
 				usr["tugaskul"] = tgskul
 				usr["klstw"] = classOffered
 				usr["user"] = tokens
@@ -315,19 +315,21 @@ func (s *studentMaterialRepository) AssignmentReminder(ctx context.Context) ([]m
 		}
 
 		if len(mhsID) > 0 {
+			var user []string
 			s.db.WithContext(ctx).Table("users").
 				Select("mobile_token").
 				Where("name in ?", mhsID).
 				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
 				Find(&user)
-		}
 
-		if len(user) > 0 {
-			usr["tugaskul"] = tgskul
-			usr["klstw"] = classOffered
-			usr["user"] = user
-			usr["subject"] = classOffered.SubjectName
-			users = append(users, usr)
+			if len(user) > 0 {
+				usr := map[string]interface{}{}
+				usr["tugaskul"] = tgskul
+				usr["klstw"] = classOffered
+				usr["user"] = user
+				usr["subject"] = classOffered.SubjectName
+				users = append(users, usr)
+			}
 		}
 	}
 
@@ -382,19 +384,21 @@ func (s *studentMaterialRepository) AssignmentReminderH1(ctx context.Context) ([
 		}
 
 		if len(mhsID) > 0 {
+			var user []string
 			s.db.WithContext(ctx).Table("users").
 				Select("mobile_token").
 				Where("name in ?", mhsID).
 				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
 				Find(&user)
-		}
 
-		if len(user) > 0 {
-			usr["tugaskul"] = tgskul
-			usr["klstw"] = classOffered
-			usr["user"] = user
-			usr["subject"] = classOffered.SubjectName
-			users = append(users, usr)
+			if len(user) > 0 {
+				usr := map[string]interface{}{}
+				usr["tugaskul"] = tgskul
+				usr["klstw"] = classOffered
+				usr["user"] = user
+				usr["subject"] = classOffered.SubjectName
+				users = append(users, usr)
+			}
 		}
 	}
 
