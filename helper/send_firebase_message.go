@@ -47,8 +47,15 @@ func NewSendFirebaseMessage(
 // Error discard karena tidak boleh memblok alur utama pengiriman FCM.
 func (s *sendFirebaseMessage) saveNotifForUsers(ctx context.Context, npms []string, role, title, body, notifType, referenceID string) {
 	for _, id := range npms {
+		// PENGAMAN: Jika ID lebih dari 20 karakter (misal tak sengaja terisi token), potong agar DB tidak error
+		finalID := id
+		if len(finalID) > 20 {
+			log.Printf("[NOTIF Warning] ID '%s' terlalu panjang (len=%d), memotong ke 20 karakter\n", id, len(id))
+			finalID = finalID[:20]
+		}
+
 		n := &entities.Notification{
-			RecipientID:   id,
+			RecipientID:   finalID,
 			RecipientRole: role,
 			Title:         title,
 			Body:          body,
@@ -58,7 +65,7 @@ func (s *sendFirebaseMessage) saveNotifForUsers(ctx context.Context, npms []stri
 			CreatedAt:     time.Now(),
 		}
 		if saveErr := s.notificationRepo.Save(ctx, n); saveErr != nil {
-			log.Printf("[NOTIF] gagal simpan notifikasi untuk %s: %v", id, saveErr)
+			log.Printf("[NOTIF Error] gagal simpan ke DB untuk %s: %v", finalID, saveErr)
 		}
 	}
 }
@@ -183,7 +190,7 @@ func (s *sendFirebaseMessage) SendPresenceCreatedNotification() error {
 			},
 		}
 
-		tokenMap, _ := u["token_map"].(map[string]string)
+		tokenMap, _ := usr["token_map"].(map[string]string)
 		var npms []string
 		for npm := range tokenMap {
 			npms = append(npms, npm)
