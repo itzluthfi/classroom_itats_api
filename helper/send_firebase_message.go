@@ -26,6 +26,7 @@ type SendFirebaseMessage interface {
 	SendPresenceReminderNotification() error
 	SendAssignmentCreatedNotification() error
 	SendAssignmentReminderNotification() error
+	SendAssignmentReminderH1Notification() error
 }
 
 func NewSendFirebaseMessage(
@@ -433,6 +434,96 @@ func (s *sendFirebaseMessage) SendAssignmentReminderNotification() error {
 
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[AssignmentReminder] Send FCM gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
+			continue
+		}
+
+		s.saveNotifForUsers(ctx, user, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
+	}
+
+	return errors.Join(errs...)
+}
+
+// ─── SendAssignmentReminderH1Notification ────────────────────────────────────
+
+func (s *sendFirebaseMessage) SendAssignmentReminderH1Notification() error {
+	ctx := context.Background()
+
+	client, err := s.app.Messaging(ctx)
+	if err != nil {
+		return fmt.Errorf("gagal inisialisasi Firebase Messaging client: %w", err)
+	}
+
+	users, err := s.taskCronService.AssignmentReminderH1(ctx)
+	if err != nil {
+		return fmt.Errorf("gagal ambil data assignment reminder H-1 dari DB: %w", err)
+	}
+
+	if len(users) == 0 {
+		log.Println("[FCM] tidak ada tugas yang mendekati deadline H-1 besok")
+		return nil
+	}
+
+	var errs []error
+
+	for _, usr := range users {
+		rawKul, ok := usr["tugaskul"]
+		if !ok {
+			errs = append(errs, errors.New("[AssignmentReminderH1] key 'tugaskul' tidak ditemukan"))
+			continue
+		}
+		kul, ok := rawKul.(entities.Assignment)
+		if !ok {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] type assertion gagal untuk 'tugaskul': got %T", rawKul))
+			continue
+		}
+
+		rawKlstw, ok := usr["klstw"]
+		if !ok {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] key 'klstw' tidak ditemukan untuk assignment_id=%d", kul.AssignmentID))
+			continue
+		}
+		klstw, ok := rawKlstw.(entities.ClassOffered)
+		if !ok {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] type assertion gagal untuk 'klstw': got %T", rawKlstw))
+			continue
+		}
+
+		user, e := extractStringSlice(usr, "user")
+		if e != nil {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] assignment_id=%d: %w", kul.AssignmentID, e))
+			continue
+		}
+
+		if len(user) == 0 {
+			log.Printf("[FCM] AssignmentReminderH1: tidak ada mahasiswa dengan token untuk assignment_id=%d", kul.AssignmentID)
+			continue
+		}
+
+		topic := fmt.Sprintf("%s_%s_%s_%s_%d_assignment_reminder_h1_notification",
+			klstw.SubjectID, klstw.SubjectClass, klstw.AcademicPeriodID, klstw.MajorID, kul.AssignmentID)
+
+		response, e := client.SubscribeToTopic(ctx, user, topic)
+		if e != nil {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] SubscribeToTopic gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
+			continue
+		}
+		log.Printf("[FCM] AssignmentReminderH1: %d token subscribe ke topic %s", response.SuccessCount, topic)
+
+		title := "Awas Deadline Besok! 🚨"
+		body := fmt.Sprintf("Awas! Tugas %s deadline besok malam (%s) dan kamu belum kumpul.",
+			kul.AssignmentTitle, formatTime(kul.DueDate))
+
+		message := &messaging.Message{
+			Notification: &messaging.Notification{Title: title, Body: body},
+			Topic:        topic,
+			Data: map[string]string{
+				"type":         "assignment",
+				"reference_id": fmt.Sprintf("%d", kul.AssignmentID),
+			},
+		}
+
+		if _, e = client.Send(ctx, message); e != nil {
+			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] Send FCM gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
 			continue
 		}
 

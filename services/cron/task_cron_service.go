@@ -12,6 +12,7 @@ type taskCronService struct {
 type TaskCronService interface {
 	AssignmentCreated(ctx context.Context) ([]map[string]interface{}, error)
 	AssignmentReminder(ctx context.Context) ([]map[string]interface{}, error)
+	AssignmentReminderH1(ctx context.Context) ([]map[string]interface{}, error)
 }
 
 func NewTaskCronService(studentMaterialRepository student_repositories.StudentMaterialRepository) *taskCronService {
@@ -26,4 +27,8 @@ func (t *taskCronService) AssignmentCreated(ctx context.Context) ([]map[string]i
 
 func (t *taskCronService) AssignmentReminder(ctx context.Context) ([]map[string]interface{}, error) {
 	return t.studentMaterialRepository.AssignmentReminder(ctx)
+}
+
+func (t *taskCronService) AssignmentReminderH1(ctx context.Context) ([]map[string]interface{}, error) {
+	return t.studentMaterialRepository.AssignmentReminderH1(ctx)
 }

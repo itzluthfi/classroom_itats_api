@@ -181,8 +181,17 @@ func main() {
 		panic(err.Error())
 	}
 
+	j3, err := s.NewJob(gocron.DurationJob(time.Hour*24), gocron.NewTask(func() {
+		firebaseHelper.SendAssignmentReminderH1Notification()
+	}))
+
+	if err != nil {
+		panic(err.Error())
+	}
+
 	log.Println(j1.LastRun())
 	log.Println(j2.LastRun())
+	log.Println(j3.LastRun())
 
 	s.Start()
 
