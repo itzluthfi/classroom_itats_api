@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"classroom_itats_api/helper"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,7 @@ func NewWebhookHandler(firebaseHelper helper.SendFirebaseMessage) *webhookHandle
 func (w *webhookHandler) TriggerPresenceNotification(c *gin.Context) {
 	err := w.firebaseHelper.SendPresenceCreatedNotification()
 	if err != nil {
+		log.Printf("[Webhook Error] Presence: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
 		return
 	}
@@ -36,6 +38,7 @@ func (w *webhookHandler) TriggerPresenceNotification(c *gin.Context) {
 func (w *webhookHandler) TriggerAssignmentNotification(c *gin.Context) {
 	err := w.firebaseHelper.SendAssignmentCreatedNotification()
 	if err != nil {
+		log.Printf("[Webhook Error] Assignment: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "failed", "message": err.Error()})
 		return
 	}

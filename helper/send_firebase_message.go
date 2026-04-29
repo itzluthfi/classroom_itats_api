@@ -117,11 +117,13 @@ func (s *sendFirebaseMessage) SendPresenceCreatedNotification() error {
 
 	client, err := s.app.Messaging(ctx)
 	if err != nil {
+		log.Printf("[FCM Error] Gagal inisialisasi client: %v\n", err)
 		return fmt.Errorf("gagal inisialisasi Firebase Messaging client: %w", err)
 	}
 
 	users, err := s.presenceCronService.PresenceCreated(ctx)
 	if err != nil {
+		log.Printf("[FCM Error] Gagal ambil data presence dari DB: %v\n", err)
 		return fmt.Errorf("gagal ambil data presence created dari DB: %w", err)
 	}
 
@@ -268,11 +270,13 @@ func (s *sendFirebaseMessage) SendAssignmentCreatedNotification() error {
 
 	client, err := s.app.Messaging(ctx)
 	if err != nil {
+		log.Printf("[FCM Error] Gagal inisialisasi client: %v\n", err)
 		return fmt.Errorf("gagal inisialisasi Firebase Messaging client: %w", err)
 	}
 
 	users, err := s.taskCronService.AssignmentCreated(ctx)
 	if err != nil {
+		log.Printf("[FCM Error] Gagal ambil data assignment dari DB: %v\n", err)
 		return fmt.Errorf("gagal ambil data assignment created dari DB: %w", err)
 	}
 
