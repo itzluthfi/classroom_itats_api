@@ -49,8 +49,10 @@ import (
 func initializeServiceAccountID() *firebase.App {
 	// [START initialize_sdk_with_service_account_id]
 	conf := &firebase.Config{
+		ProjectID:        "classroomitats", // Sesuai dengan prefix file json Anda
 		ServiceAccountID: "firebase-adminsdk-fowjd@871324361748.iam.gserviceaccount.com",
 	}
+	// Pastikan path file .json benar. Gunakan path relatif dari root project.
 	opt := option.WithCredentialsFile("./resource/classroomitats-firebase-adminsdk-fowjd-1098de7885.json")
 	app, err := firebase.NewApp(context.Background(), conf, opt)
 	if err != nil {
