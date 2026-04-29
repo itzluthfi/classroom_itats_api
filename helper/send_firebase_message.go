@@ -114,7 +114,9 @@ func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return "waktu tidak tersedia"
 	}
-	return t.UTC().Format(time.RFC1123)
+	// Konversi ke WIB (UTC+7)
+	wib := time.FixedZone("WIB", 7*60*60)
+	return t.In(wib).Format("02 Jan 2006, pukul 15:04 WIB")
 }
 
 // ─── SendPresenceCreatedNotification ─────────────────────────────────────────
