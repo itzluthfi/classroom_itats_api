@@ -45,8 +45,8 @@ func NewSendFirebaseMessage(
 
 // saveNotifForUsers menyimpan notifikasi ke DB untuk setiap penerima.
 // Error discard karena tidak boleh memblok alur utama pengiriman FCM.
-func (s *sendFirebaseMessage) saveNotifForUsers(ctx context.Context, recipientIDs []string, role, title, body, notifType, referenceID string) {
-	for _, id := range recipientIDs {
+func (s *sendFirebaseMessage) saveNotifForUsers(ctx context.Context, npms []string, role, title, body, notifType, referenceID string) {
+	for _, id := range npms {
 		n := &entities.Notification{
 			RecipientID:   id,
 			RecipientRole: role,
@@ -183,12 +183,18 @@ func (s *sendFirebaseMessage) SendPresenceCreatedNotification() error {
 			},
 		}
 
+		tokenMap, _ := u["token_map"].(map[string]string)
+		var npms []string
+		for npm := range tokenMap {
+			npms = append(npms, npm)
+		}
+
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[PresenceCreated] Send FCM gagal untuk kulid=%s: %w", kul.LectureID, e))
 			continue
 		}
 
-		s.saveNotifForUsers(ctx, user, "student", title, body, "presence", kul.LectureID)
+		s.saveNotifForUsers(ctx, npms, "student", title, body, "presence", kul.LectureID)
 	}
 
 	return errors.Join(errs...)
@@ -258,12 +264,18 @@ func (s *sendFirebaseMessage) SendPresenceReminderNotification() error {
 			},
 		}
 
+		tokenMap, _ := usr["token_map"].(map[string]string)
+		var npms []string
+		for npm := range tokenMap {
+			npms = append(npms, npm)
+		}
+
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[PresenceReminder] Send FCM gagal untuk kulid=%s: %w", kul.LectureID, e))
 			continue
 		}
 
-		s.saveNotifForUsers(ctx, user, "student", title, body, "presence", kul.LectureID)
+		s.saveNotifForUsers(ctx, npms, "student", title, body, "presence", kul.LectureID)
 	}
 
 	return errors.Join(errs...)
@@ -352,12 +364,18 @@ func (s *sendFirebaseMessage) SendAssignmentCreatedNotification() error {
 			},
 		}
 
+		tokenMap, _ := usr["token_map"].(map[string]string)
+		var npms []string
+		for npm := range tokenMap {
+			npms = append(npms, npm)
+		}
+
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[AssignmentCreated] Send FCM gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
 			continue
 		}
 
-		s.saveNotifForUsers(ctx, user, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
+		s.saveNotifForUsers(ctx, npms, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
 	}
 
 	return errors.Join(errs...)
@@ -442,12 +460,18 @@ func (s *sendFirebaseMessage) SendAssignmentReminderNotification() error {
 			},
 		}
 
+		tokenMap, _ := usr["token_map"].(map[string]string)
+		var npms []string
+		for npm := range tokenMap {
+			npms = append(npms, npm)
+		}
+
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[AssignmentReminder] Send FCM gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
 			continue
 		}
 
-		s.saveNotifForUsers(ctx, user, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
+		s.saveNotifForUsers(ctx, npms, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
 	}
 
 	return errors.Join(errs...)
@@ -532,12 +556,18 @@ func (s *sendFirebaseMessage) SendAssignmentReminderH1Notification() error {
 			},
 		}
 
+		tokenMap, _ := usr["token_map"].(map[string]string)
+		var npms []string
+		for npm := range tokenMap {
+			npms = append(npms, npm)
+		}
+
 		if _, e = client.Send(ctx, message); e != nil {
 			errs = append(errs, fmt.Errorf("[AssignmentReminderH1] Send FCM gagal untuk assignment_id=%d: %w", kul.AssignmentID, e))
 			continue
 		}
 
-		s.saveNotifForUsers(ctx, user, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
+		s.saveNotifForUsers(ctx, npms, "student", title, body, "assignment", fmt.Sprintf("%d", kul.AssignmentID))
 	}
 
 	return errors.Join(errs...)
