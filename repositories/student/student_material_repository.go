@@ -238,20 +238,31 @@ func (s *studentMaterialRepository) AssignmentCreated(ctx context.Context) ([]ma
 		}
 
 		if len(mhsID) > 0 {
-			// Ambil token mobile mahasiswa
-			s.db.WithContext(ctx).Table("users").
-				Select("mobile_token").
+			var mhsTokens []struct {
+				Name        string
+				MobileToken string
+			}
+			s.db.WithContext(ctx).Table("users").Select("name, mobile_token").
 				Where("name in ?", mhsID).
 				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
-				Find(&user)
-		}
+				Find(&mhsTokens)
 
-		if len(user) > 0 {
-			usr["tugaskul"] = tgskul
-			usr["klstw"] = classOffered
-			usr["user"] = user
-			usr["subject"] = classOffered.SubjectName
-			users = append(users, usr)
+			if len(mhsTokens) > 0 {
+				tokenMap := make(map[string]string)
+				var tokens []string
+				for _, mt := range mhsTokens {
+					tokenMap[mt.Name] = mt.MobileToken
+					tokens = append(tokens, mt.MobileToken)
+				}
+
+				usr := map[string]interface{}{}
+				usr["tugaskul"] = tgskul
+				usr["klstw"] = classOffered
+				usr["user"] = tokens
+				usr["token_map"] = tokenMap
+				usr["subject"] = classOffered.SubjectName
+				users = append(users, usr)
+			}
 		}
 	}
 

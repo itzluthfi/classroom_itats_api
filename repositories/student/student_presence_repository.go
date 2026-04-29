@@ -77,16 +77,12 @@ func (s *studentPresenceRepository) PresenceCreated(ctx context.Context) ([]map[
 	}
 
 	for _, kul := range kuls {
-		var subject string
-		var user []string
-		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
-
-		// Ambil Nama Matakuliah
-		s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).First(&subject)
-		if subject == "" {
-			subject = "Matakuliah" // Fallback jika nama tidak ditemukan
+		var subjectName string
+		s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).Row().Scan(&subjectName)
+		if subjectName == "" {
+			subjectName = "Matakuliah"
 		}
 
 		// Cari Jurusan
@@ -107,18 +103,32 @@ func (s *studentPresenceRepository) PresenceCreated(ctx context.Context) ([]map[
 		}
 
 		if len(mhsID) > 0 {
-			// Ambil token mobile mahasiswa
-			s.db.WithContext(ctx).Table("users").
-				Select("mobile_token").
+			var mhsTokens []struct {
+				Name        string
+				MobileToken string
+			}
+			s.db.WithContext(ctx).Table("users").Select("name, mobile_token").
 				Where("name in ?", mhsID).
 				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
-				Find(&user)
-		}
+				Find(&mhsTokens)
 
-		if len(user) > 0 {
+			if len(mhsTokens) == 0 {
+				continue
+			}
+
+			// Map NPM -> Token untuk keperluan push notif & simpan ke DB
+			tokenMap := make(map[string]string)
+			var tokens []string
+			for _, mt := range mhsTokens {
+				tokenMap[mt.Name] = mt.MobileToken
+				tokens = append(tokens, mt.MobileToken)
+			}
+
+			usr := map[string]interface{}{}
 			usr["kul"] = kul
-			usr["user"] = user
-			usr["subject"] = subject
+			usr["user"] = tokens
+			usr["token_map"] = tokenMap
+			usr["subject"] = subjectName
 			users = append(users, usr)
 		}
 	}
