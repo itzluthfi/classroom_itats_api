@@ -66,7 +66,12 @@ func (s *studentPresenceRepository) PresenceCreated(ctx context.Context) ([]map[
 	users := []map[string]interface{}{}
 	kuls := []entities.Lecture{}
 
-	err := s.db.WithContext(ctx).Table("kul").Where("waktu_entri between ? AND ?", time.Now().Add(time.Duration(-30)*time.Minute), time.Now()).Where("batas_presensi > ?", time.Now()).Find(&kuls).Error
+	// Ambil absensi yang dibuat dalam 60 menit terakhir
+	err := s.db.WithContext(ctx).Table("kul").
+		Where("waktu_entri between ? AND ?", time.Now().Add(time.Duration(-60)*time.Minute), time.Now()).
+		Where("batas_presensi > ?", time.Now()).
+		Order("waktu_entri DESC").
+		Find(&kuls).Error
 	if err != nil {
 		return nil, err
 	}
@@ -77,49 +82,45 @@ func (s *studentPresenceRepository) PresenceCreated(ctx context.Context) ([]map[
 		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
-		e := s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).Find(&subject).Error
-		if e != nil {
-			err = e
+
+		// Ambil Nama Matakuliah
+		s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).First(&subject)
+		if subject == "" {
+			subject = "Matakuliah" // Fallback jika nama tidak ditemukan
 		}
 
-		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", kul.MajorID).Or("jur_parent_id = ?", kul.MajorID).Find(&jurID).Error
+		// Cari Jurusan
+		s.db.WithContext(ctx).Table("jur").Select("jurid").
+			Where("jurid = ?", kul.MajorID).
+			Or("jur_parent_id = ?", kul.MajorID).
+			Find(&jurID)
 
-		if e != nil {
-			err = e
-		}
-
-		if len(jurID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("krs").Select("mhsid").
+		if len(jurID) > 0 {
+			// Cari Mahasiswa yang harusnya absen tapi belum absen
+			s.db.WithContext(ctx).Table("krs").Select("mhsid").
 				Where("pakid = ?", kul.AcademicPeriodID).
 				Where("mkid = ?", kul.SubjectID).
 				Where("kelaskrs = ?", kul.SubjectClass).
 				Where("jurid in ?", jurID).
-				Where("NOT EXISTS (SELECT mhsid FROM absen where absen.pakid = krs.pakid and absen.mkid = krs.mkid and absen.kelas = krs.kelaskrs and absen.mhsid = krs.mhsid and absen.weekid = ? and absen.kultype = ? and absen.jurid = ?)", kul.WeekID, kul.LectureType, kul.MajorID).Find(&mhsID).Error
+				Where("NOT EXISTS (SELECT 1 FROM absen a WHERE a.pakid = krs.pakid AND a.mkid = krs.mkid AND a.kelas = krs.kelaskrs AND a.mhsid = krs.mhsid AND a.weekid = ? AND a.kultype = ?)", kul.WeekID, kul.LectureType).
+				Find(&mhsID)
 		}
 
-		if e != nil {
-			err = e
+		if len(mhsID) > 0 {
+			// Ambil token mobile mahasiswa
+			s.db.WithContext(ctx).Table("users").
+				Select("mobile_token").
+				Where("name in ?", mhsID).
+				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
+				Find(&user)
 		}
 
-		if len(mhsID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
-		}
-
-		if e == nil {
+		if len(user) > 0 {
 			usr["kul"] = kul
 			usr["user"] = user
 			usr["subject"] = subject
 			users = append(users, usr)
 		}
-
-		if err != nil {
-			err = e
-		}
-
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return users, nil
@@ -129,7 +130,10 @@ func (s *studentPresenceRepository) PresenceReminder(ctx context.Context) ([]map
 	users := []map[string]interface{}{}
 	kuls := []entities.Lecture{}
 
-	err := s.db.WithContext(ctx).Table("kul").Where("batas_presensi between ? and ?", time.Now(), time.Now().Add(time.Duration(3)*time.Hour)).Find(&kuls).Error
+	// Ambil absensi yang akan berakhir dalam 3 jam ke depan
+	err := s.db.WithContext(ctx).Table("kul").
+		Where("batas_presensi between ? and ?", time.Now(), time.Now().Add(time.Duration(3)*time.Hour)).
+		Find(&kuls).Error
 	if err != nil {
 		return nil, err
 	}
@@ -140,50 +144,42 @@ func (s *studentPresenceRepository) PresenceReminder(ctx context.Context) ([]map
 		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
-		e := s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).Find(&subject).Error
-		if e != nil {
-			err = e
+
+		s.db.WithContext(ctx).Table("mk").Select("mknama").Where("mkid = ?", kul.SubjectID).First(&subject)
+		if subject == "" {
+			subject = "Matakuliah"
 		}
 
-		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", kul.MajorID).Or("jur_parent_id = ?", kul.MajorID).Find(&jurID).Error
+		s.db.WithContext(ctx).Table("jur").Select("jurid").
+			Where("jurid = ?", kul.MajorID).
+			Or("jur_parent_id = ?", kul.MajorID).
+			Find(&jurID)
 
-		if e != nil {
-			err = e
-		}
-
-		if len(jurID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("krs").
+		if len(jurID) > 0 {
+			s.db.WithContext(ctx).Table("krs").
 				Select("mhsid").
 				Where("pakid = ?", kul.AcademicPeriodID).
 				Where("mkid = ?", kul.SubjectID).
 				Where("kelaskrs = ?", kul.SubjectClass).
 				Where("jurid in ?", jurID).
-				Where("NOT EXISTS (SELECT mhsid FROM absen where absen.pakid = krs.pakid and absen.mkid = krs.mkid and absen.kelas = krs.kelaskrs and absen.mhsid = krs.mhsid and absen.weekid = ? and absen.kultype = ? and absen.jurid = ?)", kul.WeekID, kul.LectureType, kul.MajorID).Find(&mhsID).Error
+				Where("NOT EXISTS (SELECT 1 FROM absen a WHERE a.pakid = krs.pakid AND a.mkid = krs.mkid AND a.kelas = krs.kelaskrs AND a.mhsid = krs.mhsid AND a.weekid = ? AND a.kultype = ?)", kul.WeekID, kul.LectureType).
+				Find(&mhsID)
 		}
 
-		if e != nil {
-			err = e
+		if len(mhsID) > 0 {
+			s.db.WithContext(ctx).Table("users").
+				Select("mobile_token").
+				Where("name in ?", mhsID).
+				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
+				Find(&user)
 		}
 
-		if len(mhsID) > 0 || e == nil {
-			err = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
-		}
-
-		if e == nil {
+		if len(user) > 0 {
 			usr["kul"] = kul
 			usr["user"] = user
 			usr["subject"] = subject
 			users = append(users, usr)
 		}
-
-		if err != nil {
-			err = e
-		}
-
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return users, nil
