@@ -190,65 +190,69 @@ func (s *studentMaterialRepository) AssignmentCreated(ctx context.Context) ([]ma
 	users := []map[string]interface{}{}
 	tugasKul := []entities.Assignment{}
 
-	err := s.db.WithContext(ctx).Table("tugas_kul").Where("created_at between ? and ?", time.Now().Add(time.Duration(-30)*time.Minute), time.Now()).Find(&tugasKul).Error
+	// Ambil tugas yang dibuat dalam 60 menit terakhir (lebih longgar dari 30 menit untuk antisipasi delay)
+	err := s.db.WithContext(ctx).Table("tugas_kul").
+		Where("created_at between ? and ?", time.Now().Add(time.Duration(-60)*time.Minute), time.Now()).
+		Order("created_at DESC").
+		Find(&tugasKul).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var subject string
 		var user []string
 		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
+
+		// Coba cari di vw_kelas_tawar
 		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
-
+		
+		// Jika tidak ada di vw_kelas_tawar, coba di tabel jad (untuk semester 20252+)
 		if e != nil {
-			err = e
+			e = s.db.WithContext(ctx).Table("jad").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
 		}
 
-		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", classOffered.MajorID).Or("jur_parent_id = ?", classOffered.MajorID).Find(&jurID).Error
-
 		if e != nil {
-			err = e
+			// Jika tetap tidak ditemukan, lewati tugas ini (mungkin data master_kegiatan tidak valid)
+			continue
 		}
 
-		if len(jurID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("krs").
+		// Cari Jurusan (termasuk parent/child)
+		s.db.WithContext(ctx).Table("jur").Select("jurid").
+			Where("jurid = ?", classOffered.MajorID).
+			Or("jur_parent_id = ?", classOffered.MajorID).
+			Find(&jurID)
+
+		if len(jurID) > 0 {
+			// Cari Mahasiswa yang mengambil matakuliah tersebut di KRS dan belum submit tugas ini
+			s.db.WithContext(ctx).Table("krs").
 				Select("mhsid").
 				Where("pakid = ?", classOffered.AcademicPeriodID).
 				Where("mkid = ?", classOffered.SubjectID).
 				Where("kelaskrs = ?", classOffered.SubjectClass).
 				Where("jurid in ?", jurID).
-				Where("NOT EXISTS (SELECT mhsid FROM tugas_submission where tugas_submission.tugas_kul_id  = ?)", tgskul.AssignmentID).
-				Find(&mhsID).Error
+				Where("NOT EXISTS (SELECT 1 FROM tugas_submission ts WHERE ts.tugas_kul_id = ? AND ts.mhsid = krs.mhsid)", tgskul.AssignmentID).
+				Find(&mhsID)
 		}
 
-		if e != nil {
-			err = e
+		if len(mhsID) > 0 {
+			// Ambil token mobile mahasiswa
+			s.db.WithContext(ctx).Table("users").
+				Select("mobile_token").
+				Where("name in ?", mhsID).
+				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
+				Find(&user)
 		}
 
-		if len(mhsID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
-		}
-
-		if e == nil {
+		if len(user) > 0 {
 			usr["tugaskul"] = tgskul
 			usr["klstw"] = classOffered
 			usr["user"] = user
-			usr["subject"] = subject
+			usr["subject"] = classOffered.SubjectName
 			users = append(users, usr)
 		}
-
-		if err != nil {
-			err = e
-		}
-
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return users, nil
@@ -258,64 +262,64 @@ func (s *studentMaterialRepository) AssignmentReminder(ctx context.Context) ([]m
 	users := []map[string]interface{}{}
 	tugasKul := []entities.Assignment{}
 
-	err := s.db.WithContext(ctx).Table("tugas_kul").Where("batas_pengumpulan between ? and ?", time.Now(), time.Now().Add(time.Duration(3)*time.Hour)).Find(&tugasKul).Error
+	// Cari tugas yang deadline-nya antara sekarang sampai 3 jam ke depan
+	err := s.db.WithContext(ctx).Table("tugas_kul").
+		Where("batas_pengumpulan between ? and ?", time.Now(), time.Now().Add(time.Duration(3)*time.Hour)).
+		Find(&tugasKul).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var subject string
 		var user []string
 		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
-		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).Find(&classOffered).Error
 
+		// Coba vw_kelas_tawar
+		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
+		
+		// Fallback ke jad
 		if e != nil {
-			err = e
+			e = s.db.WithContext(ctx).Table("jad").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
 		}
 
-		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", classOffered.MajorID).Or("jur_parent_id = ?", classOffered.MajorID).Find(&jurID).Error
-
 		if e != nil {
-			err = e
+			continue
 		}
 
-		if len(jurID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("krs").
+		s.db.WithContext(ctx).Table("jur").Select("jurid").
+			Where("jurid = ?", classOffered.MajorID).
+			Or("jur_parent_id = ?", classOffered.MajorID).
+			Find(&jurID)
+
+		if len(jurID) > 0 {
+			s.db.WithContext(ctx).Table("krs").
 				Select("mhsid").
 				Where("pakid = ?", classOffered.AcademicPeriodID).
 				Where("mkid = ?", classOffered.SubjectID).
 				Where("kelaskrs = ?", classOffered.SubjectClass).
 				Where("jurid in ?", jurID).
-				Where("NOT EXISTS (SELECT mhsid FROM tugas_submission where tugas_submission.tugas_kul_id  = ?)", tgskul.AssignmentID).Find(&mhsID).Error
+				Where("NOT EXISTS (SELECT 1 FROM tugas_submission ts WHERE ts.tugas_kul_id = ? AND ts.mhsid = krs.mhsid)", tgskul.AssignmentID).
+				Find(&mhsID)
 		}
 
-		if e != nil {
-			err = e
+		if len(mhsID) > 0 {
+			s.db.WithContext(ctx).Table("users").
+				Select("mobile_token").
+				Where("name in ?", mhsID).
+				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
+				Find(&user)
 		}
 
-		if len(mhsID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
-		}
-
-		if e == nil {
+		if len(user) > 0 {
 			usr["tugaskul"] = tgskul
 			usr["klstw"] = classOffered
 			usr["user"] = user
-			usr["subject"] = subject
+			usr["subject"] = classOffered.SubjectName
 			users = append(users, usr)
 		}
-
-		if err != nil {
-			err = e
-		}
-
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return users, nil
@@ -326,64 +330,63 @@ func (s *studentMaterialRepository) AssignmentReminderH1(ctx context.Context) ([
 	tugasKul := []entities.Assignment{}
 
 	// Cari tugas yang deadline-nya besok (H-1)
-	err := s.db.WithContext(ctx).Table("tugas_kul").Where("DATE(batas_pengumpulan) = CURRENT_DATE + INTERVAL '1 day'").Find(&tugasKul).Error
+	err := s.db.WithContext(ctx).Table("tugas_kul").
+		Where("DATE(batas_pengumpulan) = CURRENT_DATE + INTERVAL '1 day'").
+		Find(&tugasKul).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var subject string
 		var user []string
 		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
-		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).Find(&classOffered).Error
 
+		// Coba vw_kelas_tawar
+		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
+		
+		// Fallback ke jad
 		if e != nil {
-			err = e
+			e = s.db.WithContext(ctx).Table("jad").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).First(&classOffered).Error
 		}
 
-		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", classOffered.MajorID).Or("jur_parent_id = ?", classOffered.MajorID).Find(&jurID).Error
-
 		if e != nil {
-			err = e
+			continue
 		}
 
-		if len(jurID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("krs").
+		s.db.WithContext(ctx).Table("jur").Select("jurid").
+			Where("jurid = ?", classOffered.MajorID).
+			Or("jur_parent_id = ?", classOffered.MajorID).
+			Find(&jurID)
+
+		if len(jurID) > 0 {
+			s.db.WithContext(ctx).Table("krs").
 				Select("mhsid").
 				Where("pakid = ?", classOffered.AcademicPeriodID).
 				Where("mkid = ?", classOffered.SubjectID).
 				Where("kelaskrs = ?", classOffered.SubjectClass).
 				Where("jurid in ?", jurID).
-				Where("NOT EXISTS (SELECT mhsid FROM tugas_submission where tugas_submission.tugas_kul_id  = ?)", tgskul.AssignmentID).Find(&mhsID).Error
+				Where("NOT EXISTS (SELECT 1 FROM tugas_submission ts WHERE ts.tugas_kul_id = ? AND ts.mhsid = krs.mhsid)", tgskul.AssignmentID).
+				Find(&mhsID)
 		}
 
-		if e != nil {
-			err = e
+		if len(mhsID) > 0 {
+			s.db.WithContext(ctx).Table("users").
+				Select("mobile_token").
+				Where("name in ?", mhsID).
+				Where("mobile_token IS NOT NULL AND mobile_token != ? AND mobile_token != ?", "null", "").
+				Find(&user)
 		}
 
-		if len(mhsID) > 0 || e == nil {
-			e = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
-		}
-
-		if e == nil {
+		if len(user) > 0 {
 			usr["tugaskul"] = tgskul
 			usr["klstw"] = classOffered
 			usr["user"] = user
-			usr["subject"] = subject
+			usr["subject"] = classOffered.SubjectName
 			users = append(users, usr)
 		}
-
-		if err != nil {
-			err = e
-		}
-
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return users, nil
