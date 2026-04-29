@@ -195,10 +195,6 @@ func main() {
 
 	s.Start()
 
-	select {
-	case <-time.After(time.Minute):
-	}
-
 	// when you're done, shut it down
 	// err = s.Shutdown()
 	// if err != nil {
@@ -224,7 +220,10 @@ func main() {
 		MaxHeaderBytes: 2048,
 	}
 
-	server.ListenAndServe()
+	log.Println("Listening on", server.Addr)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("listen: %s\n", err)
+	}
 }
 
 func loadEnv() {
