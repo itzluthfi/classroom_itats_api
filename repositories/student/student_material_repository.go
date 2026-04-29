@@ -22,6 +22,7 @@ type StudentMaterialRepository interface {
 	GetStudentAssignmentSubmission(ctx context.Context, mhsID string, assignmentID int) (entities.AssignmentSubmission, error)
 	AssignmentCreated(ctx context.Context) ([]map[string]interface{}, error)
 	AssignmentReminder(ctx context.Context) ([]map[string]interface{}, error)
+	AssignmentReminderH1(ctx context.Context) ([]map[string]interface{}, error)
 	GetActiveAssignment(ctx context.Context, pakID string, mkID string, class string, mhsID string) ([]entities.Assignment, error)
 	GetHomeActiveAssignment(ctx context.Context, mhsID string, pakID string) ([]entities.Assignment, error)
 }
@@ -258,6 +259,74 @@ func (s *studentMaterialRepository) AssignmentReminder(ctx context.Context) ([]m
 	tugasKul := []entities.Assignment{}
 
 	err := s.db.WithContext(ctx).Table("tugas_kul").Where("batas_pengumpulan between ? and ?", time.Now(), time.Now().Add(time.Duration(3)*time.Hour)).Find(&tugasKul).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tgskul := range tugasKul {
+		classOffered := entities.ClassOffered{}
+		var subject string
+		var user []string
+		usr := map[string]interface{}{}
+		var mhsID []string
+		var jurID []string
+		e := s.db.WithContext(ctx).Table("vw_kelas_tawar").Where("id_master_kegiatan = ?", tgskul.ActivityMasterID).Find(&classOffered).Error
+
+		if e != nil {
+			err = e
+		}
+
+		e = s.db.WithContext(ctx).Table("jur").Select("jurid").Where("jurid = ?", classOffered.MajorID).Or("jur_parent_id = ?", classOffered.MajorID).Find(&jurID).Error
+
+		if e != nil {
+			err = e
+		}
+
+		if len(jurID) > 0 || e == nil {
+			e = s.db.WithContext(ctx).Table("krs").
+				Select("mhsid").
+				Where("pakid = ?", classOffered.AcademicPeriodID).
+				Where("mkid = ?", classOffered.SubjectID).
+				Where("kelaskrs = ?", classOffered.SubjectClass).
+				Where("jurid in ?", jurID).
+				Where("NOT EXISTS (SELECT mhsid FROM tugas_submission where tugas_submission.tugas_kul_id  = ?)", tgskul.AssignmentID).Find(&mhsID).Error
+		}
+
+		if e != nil {
+			err = e
+		}
+
+		if len(mhsID) > 0 || e == nil {
+			e = s.db.WithContext(ctx).Table("users").Select("mobile_token").Where("name in ?", mhsID).Where("mobile_token != ?", "null").Find(&user).Error
+		}
+
+		if e == nil {
+			usr["tugaskul"] = tgskul
+			usr["klstw"] = classOffered
+			usr["user"] = user
+			usr["subject"] = subject
+			users = append(users, usr)
+		}
+
+		if err != nil {
+			err = e
+		}
+
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (s *studentMaterialRepository) AssignmentReminderH1(ctx context.Context) ([]map[string]interface{}, error) {
+	users := []map[string]interface{}{}
+	tugasKul := []entities.Assignment{}
+
+	// Cari tugas yang deadline-nya besok (H-1)
+	err := s.db.WithContext(ctx).Table("tugas_kul").Where("DATE(batas_pengumpulan) = CURRENT_DATE + INTERVAL '1 day'").Find(&tugasKul).Error
 	if err != nil {
 		return nil, err
 	}
