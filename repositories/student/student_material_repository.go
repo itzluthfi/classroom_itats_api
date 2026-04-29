@@ -201,8 +201,6 @@ func (s *studentMaterialRepository) AssignmentCreated(ctx context.Context) ([]ma
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var user []string
-		usr := map[string]interface{}{}
 		var mhsID []string
 		var jurID []string
 
@@ -255,7 +253,7 @@ func (s *studentMaterialRepository) AssignmentCreated(ctx context.Context) ([]ma
 					tokens = append(tokens, mt.MobileToken)
 				}
 
-				usr := map[string]interface{}{}
+				
 				usr["tugaskul"] = tgskul
 				usr["klstw"] = classOffered
 				usr["user"] = tokens
@@ -283,8 +281,8 @@ func (s *studentMaterialRepository) AssignmentReminder(ctx context.Context) ([]m
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var user []string
-		usr := map[string]interface{}{}
+		
+		
 		var mhsID []string
 		var jurID []string
 
@@ -350,8 +348,8 @@ func (s *studentMaterialRepository) AssignmentReminderH1(ctx context.Context) ([
 
 	for _, tgskul := range tugasKul {
 		classOffered := entities.ClassOffered{}
-		var user []string
-		usr := map[string]interface{}{}
+		
+		
 		var mhsID []string
 		var jurID []string
 
