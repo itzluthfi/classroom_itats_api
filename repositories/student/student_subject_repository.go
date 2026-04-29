@@ -3,6 +3,7 @@ package student_repositories
 import (
 	"classroom_itats_api/entities"
 	"context"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -151,7 +152,7 @@ func (s *studentSubjectRepository) GetTodayHariCode(ctx context.Context, dayOfWe
 	err := s.db.WithContext(ctx).
 		Table("hari").
 		Select("hari").
-		Where("day = ?", dayOfWeek).
+		Where("day = ?", strconv.Itoa(dayOfWeek)).
 		First(&result).Error
 
 	if err != nil {
