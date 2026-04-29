@@ -156,14 +156,20 @@ func (s *sendFirebaseMessage) SendPresenceCreatedNotification() error {
 		topic := fmt.Sprintf("%s_%s_%s_%s_presence_created_notification",
 			kul.SubjectID, kul.SubjectClass, kul.AcademicPeriodID, kul.MajorID)
 
+		log.Printf("[FCM] Memproses presence untuk topic: %s dengan %d token", topic, len(user))
+
 		response, e := client.SubscribeToTopic(ctx, user, topic)
 		if e != nil {
+			log.Printf("[FCM Error] SubscribeToTopic gagal: %v\n", e)
 			errs = append(errs, fmt.Errorf("[PresenceCreated] SubscribeToTopic gagal untuk kulid=%s: %w", kul.LectureID, e))
 			continue
 		}
 		log.Printf("[FCM] PresenceCreated: %d token berhasil subscribe ke topic %s", response.SuccessCount, topic)
 
 		subject := extractString(usr, "subject")
+		if subject == "" {
+			subject = "Matakuliah"
+		}
 		title := "Absensi Baru Telah Dibuat"
 		body := fmt.Sprintf("Absensi Mata Kuliah %s Kelas %s telah dibuat. Silahkan absensi sebelum %s",
 			subject, kul.SubjectClass, formatTime(kul.PresenceLimit))
