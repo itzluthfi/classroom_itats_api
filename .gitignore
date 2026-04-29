@@ -2,5 +2,6 @@
 go.sum
 .vscode
 
+*.json
 api_documentation.md
 api_documentation.md.resolved
